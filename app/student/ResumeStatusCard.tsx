@@ -79,7 +79,7 @@ export function ResumeStatusCard({ resume, onUploaded }: ResumeStatusCardProps) 
         ref={fileInputRef}
         type="file"
         accept={ACCEPTED_EXTENSIONS}
-        className="hidden"
+        className="sr-only"
         onChange={handleFileSelected}
       />
       <div>
