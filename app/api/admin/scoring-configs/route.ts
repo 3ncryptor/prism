@@ -6,6 +6,7 @@ import {
   InvalidWeightsError,
   DuplicateVersionError,
 } from "@/lib/services/scoringConfigService";
+import { recordAuditLog } from "@/lib/services/auditLogService";
 
 /** buildPlan.md §113.3 — feature #22c. */
 export async function GET() {
@@ -43,6 +44,16 @@ export async function POST(request: Request) {
       mandatoryPenalty: body.mandatoryPenalty,
       createdBy: session.user.id,
     });
+
+    await recordAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "SCORING_CONFIG_CREATED",
+      targetType: "scoringConfig",
+      targetId: config._id,
+      metadata: { version: config.version },
+    });
+
     return NextResponse.json({ config }, { status: 201 });
   } catch (error) {
     if (error instanceof UnauthorizedError) {

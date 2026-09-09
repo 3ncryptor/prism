@@ -2,16 +2,24 @@ import { NextResponse } from "next/server";
 import { requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth/guard";
 import { updateSkill, deactivateSkill, SkillNotFoundError } from "@/lib/services/skillTaxonomyService";
 import { skillCategorySchema } from "@/lib/schemas/studentProfile";
+import { recordAuditLog } from "@/lib/services/auditLogService";
 
 /** buildPlan.md §116: edit fields, or deactivate via `{ isActive: false }`. */
 export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/skill-taxonomy/[id]">) {
   try {
-    await requireRole("ADMIN");
+    const session = await requireRole("ADMIN");
     const { id } = await ctx.params;
     const body = await request.json().catch(() => ({}));
 
     if (body.isActive === false) {
       await deactivateSkill(id);
+      await recordAuditLog({
+        actorId: session.user.id,
+        actorRole: "ADMIN",
+        action: "SKILL_DEACTIVATED",
+        targetType: "skill",
+        targetId: id,
+      });
       return NextResponse.json({ id, isActive: false });
     }
 
@@ -31,6 +39,15 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/skil
     }
 
     const skill = await updateSkill(id, patch);
+
+    await recordAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "SKILL_UPDATED",
+      targetType: "skill",
+      targetId: id,
+    });
+
     return NextResponse.json({ skill });
   } catch (error) {
     if (error instanceof UnauthorizedError) {

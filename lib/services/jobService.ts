@@ -6,11 +6,12 @@ import {
 import { matchRunRepository, type MatchRunRepository } from "@/lib/db/repositories/matchRunRepository";
 import { uploadFile as s3UploadFile, buildJobKey } from "@/lib/storage/s3Client";
 import { enqueueDocumentProcessing as defaultEnqueueDocumentProcessing } from "@/lib/services/queueService";
+import { matchesFileSignature, type ValidatedFileExtension } from "@/lib/services/fileSignatureValidator";
 import type { Job } from "@/lib/schemas/job";
 
 export const MAX_JD_SIZE_BYTES = 10 * 1024 * 1024; // buildPlan.md §82
 
-const ALLOWED_MIME_TYPES: Record<string, string> = {
+const ALLOWED_MIME_TYPES: Record<string, ValidatedFileExtension> = {
   "application/pdf": "pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 };
@@ -85,6 +86,9 @@ export async function uploadJob(
   }
   if (file.size > MAX_JD_SIZE_BYTES) {
     throw new FileTooLargeError();
+  }
+  if (!matchesFileSignature(file.buffer, extension)) {
+    throw new InvalidFileTypeError();
   }
 
   const job = await deps.jobs.create({

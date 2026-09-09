@@ -6,10 +6,13 @@ import {
   InvalidFileTypeError,
   FileTooLargeError,
 } from "@/lib/services/jobService";
+import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
+import { recordAuditLog } from "@/lib/services/auditLogService";
 
 export async function POST(request: Request) {
   try {
     const session = await requireRole("ADMIN");
+    await checkRateLimit(RATE_LIMITS.jdUpload(session.user.id));
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -27,6 +30,14 @@ export async function POST(request: Request) {
       size: file.size,
       title,
       company: typeof company === "string" && company.trim() ? company : undefined,
+    });
+
+    await recordAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "JD_UPLOAD",
+      targetType: "job",
+      targetId: result.jobId,
     });
 
     return NextResponse.json(result, { status: 200 });
@@ -54,6 +65,12 @@ function handleError(error: unknown) {
   }
   if (error instanceof InvalidFileTypeError || error instanceof FileTooLargeError) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  if (error instanceof RateLimitExceededError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 429, headers: { "Retry-After": String(error.retryAfterSeconds) } },
+    );
   }
   throw error;
 }

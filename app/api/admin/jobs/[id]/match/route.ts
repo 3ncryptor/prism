@@ -6,14 +6,27 @@ import {
   JobNotReadyError,
   NoActiveScoringConfigError,
 } from "@/lib/services/matchingService";
+import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
+import { recordAuditLog } from "@/lib/services/auditLogService";
 
 /** buildPlan.md §51/§113.3 / BACKEND_ARCHITECTURE.md §8. */
 export async function POST(_request: Request, ctx: RouteContext<"/api/admin/jobs/[id]/match">) {
   try {
-    await requireRole("ADMIN");
+    const session = await requireRole("ADMIN");
+    await checkRateLimit(RATE_LIMITS.matchRun(session.user.id));
     const { id } = await ctx.params;
 
     const result = await startMatchRun(id);
+
+    await recordAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "MATCH_RUN_TRIGGERED",
+      targetType: "job",
+      targetId: id,
+      metadata: { matchRunId: result.matchRunId },
+    });
+
     return NextResponse.json({ ...result, status: "QUEUED" }, { status: 202 });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
@@ -27,6 +40,12 @@ export async function POST(_request: Request, ctx: RouteContext<"/api/admin/jobs
     }
     if (error instanceof JobNotReadyError || error instanceof NoActiveScoringConfigError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    if (error instanceof RateLimitExceededError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 429, headers: { "Retry-After": String(error.retryAfterSeconds) } },
+      );
     }
     throw error;
   }

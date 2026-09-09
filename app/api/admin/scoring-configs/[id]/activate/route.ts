@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
 import { requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth/guard";
 import { activateScoringConfigVersion, ScoringConfigNotFoundError } from "@/lib/services/scoringConfigService";
+import { recordAuditLog } from "@/lib/services/auditLogService";
 
 /** buildPlan.md §113.3 — feature #22c. */
 export async function POST(_request: Request, ctx: RouteContext<"/api/admin/scoring-configs/[id]/activate">) {
   try {
-    await requireRole("ADMIN");
+    const session = await requireRole("ADMIN");
     const { id } = await ctx.params;
     await activateScoringConfigVersion(id);
+
+    await recordAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "SCORING_CONFIG_ACTIVATED",
+      targetType: "scoringConfig",
+      targetId: id,
+    });
+
     return NextResponse.json({ id, isActive: true });
   } catch (error) {
     if (error instanceof UnauthorizedError) {

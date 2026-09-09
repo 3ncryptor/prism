@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth/guard";
 import { listSkillsWithUsage, createSkill, DuplicateCanonicalNameError } from "@/lib/services/skillTaxonomyService";
 import { skillCategorySchema } from "@/lib/schemas/studentProfile";
+import { recordAuditLog } from "@/lib/services/auditLogService";
 
 /** buildPlan.md §116. */
 export async function GET() {
@@ -44,6 +45,16 @@ export async function POST(request: Request) {
       aliases,
       createdBy: session.user.id,
     });
+
+    await recordAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "SKILL_CREATED",
+      targetType: "skill",
+      targetId: skill._id,
+      metadata: { canonicalName },
+    });
+
     return NextResponse.json({ skill }, { status: 201 });
   } catch (error) {
     if (error instanceof UnauthorizedError) {

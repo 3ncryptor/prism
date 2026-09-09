@@ -6,10 +6,12 @@ import {
   InvalidFileTypeError,
   FileTooLargeError,
 } from "@/lib/services/resumeService";
+import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
 
 export async function POST(request: Request) {
   try {
     const session = await requireRole("STUDENT");
+    await checkRateLimit(RATE_LIMITS.resumeUpload(session.user.id));
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -50,6 +52,12 @@ function handleError(error: unknown) {
   }
   if (error instanceof InvalidFileTypeError || error instanceof FileTooLargeError) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  if (error instanceof RateLimitExceededError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 429, headers: { "Retry-After": String(error.retryAfterSeconds) } },
+    );
   }
   throw error;
 }

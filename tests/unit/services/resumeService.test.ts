@@ -104,6 +104,7 @@ describe("uploadResume", () => {
       "student-1",
       {
         ...VALID_FILE,
+        buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]),
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       },
       deps,

@@ -6,11 +6,12 @@ import {
   MatchRunNotFoundError,
   MatchRunNotCompletedError,
 } from "@/lib/services/jobService";
+import { recordAuditLog } from "@/lib/services/auditLogService";
 
 /** buildPlan.md §113.2. */
 export async function POST(request: Request, ctx: RouteContext<"/api/admin/jobs/[id]/publish-results">) {
   try {
-    await requireRole("ADMIN");
+    const session = await requireRole("ADMIN");
     const { id } = await ctx.params;
     const body = await request.json().catch(() => ({}));
     const matchRunId = body.matchRunId;
@@ -19,6 +20,16 @@ export async function POST(request: Request, ctx: RouteContext<"/api/admin/jobs/
     }
 
     const job = await publishResults(id, matchRunId);
+
+    await recordAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "RESULTS_PUBLISHED",
+      targetType: "job",
+      targetId: id,
+      metadata: { matchRunId },
+    });
+
     return NextResponse.json({
       jobId: job._id,
       publishedMatchRunId: job.publishedMatchRunId,
