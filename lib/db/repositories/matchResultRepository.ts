@@ -51,6 +51,13 @@ export class MatchResultRepository {
     const doc = await collection.findOne({ matchRunId: runId, studentId });
     return doc ? toMatchResult(doc) : null;
   }
+
+  /** buildPlan.md §113.2/§0.6: every result this student has, across all jobs/runs. */
+  async listByStudent(studentId: string): Promise<MatchResult[]> {
+    const collection = await this.getCollection();
+    const docs = await collection.find({ studentId }).sort({ createdAt: -1 }).toArray();
+    return docs.map(toMatchResult);
+  }
 }
 
 async function defaultCollection(): Promise<Collection<MatchResultDocument>> {

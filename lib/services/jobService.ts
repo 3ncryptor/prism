@@ -3,6 +3,7 @@ import {
   processingJobRepository,
   type ProcessingJobRepository,
 } from "@/lib/db/repositories/processingJobRepository";
+import { matchRunRepository, type MatchRunRepository } from "@/lib/db/repositories/matchRunRepository";
 import { uploadFile as s3UploadFile, buildJobKey } from "@/lib/storage/s3Client";
 import { enqueueDocumentProcessing as defaultEnqueueDocumentProcessing } from "@/lib/services/queueService";
 import type { Job } from "@/lib/schemas/job";
@@ -25,6 +26,27 @@ export class FileTooLargeError extends Error {
   constructor() {
     super(`Job description must be smaller than ${MAX_JD_SIZE_BYTES / (1024 * 1024)}MB.`);
     this.name = "FileTooLargeError";
+  }
+}
+
+export class JobNotFoundError extends Error {
+  constructor() {
+    super("Job not found");
+    this.name = "JobNotFoundError";
+  }
+}
+
+export class MatchRunNotFoundError extends Error {
+  constructor() {
+    super("Match run not found for this job");
+    this.name = "MatchRunNotFoundError";
+  }
+}
+
+export class MatchRunNotCompletedError extends Error {
+  constructor() {
+    super("Only a completed match run can be published");
+    this.name = "MatchRunNotCompletedError";
   }
 }
 
@@ -84,4 +106,47 @@ export async function uploadJob(
 
 export async function listJobs(filter: { archived?: boolean } = {}): Promise<Job[]> {
   return jobRepository.list(filter);
+}
+
+type PublishDeps = {
+  jobs: Pick<JobRepository, "get" | "setPublishedRun" | "clearPublishedRun">;
+  matchRuns: Pick<MatchRunRepository, "get">;
+};
+
+const defaultPublishDeps: PublishDeps = {
+  jobs: jobRepository,
+  matchRuns: matchRunRepository,
+};
+
+/**
+ * buildPlan.md §113.2: points the job's visible results at a specific
+ * *completed* match run. Re-running matching later does not change this —
+ * an admin must call this again to swap in the new run.
+ */
+export async function publishResults(
+  jobId: string,
+  matchRunId: string,
+  deps: PublishDeps = defaultPublishDeps,
+): Promise<Job> {
+  const job = await deps.jobs.get(jobId);
+  if (!job) throw new JobNotFoundError();
+
+  const run = await deps.matchRuns.get(matchRunId);
+  if (!run || run.jobId !== jobId) throw new MatchRunNotFoundError();
+  if (run.status !== "COMPLETED") throw new MatchRunNotCompletedError();
+
+  await deps.jobs.setPublishedRun(jobId, matchRunId);
+  const updated = await deps.jobs.get(jobId);
+  if (!updated) throw new JobNotFoundError();
+  return updated;
+}
+
+export async function hideResults(jobId: string, deps: PublishDeps = defaultPublishDeps): Promise<Job> {
+  const job = await deps.jobs.get(jobId);
+  if (!job) throw new JobNotFoundError();
+
+  await deps.jobs.clearPublishedRun(jobId);
+  const updated = await deps.jobs.get(jobId);
+  if (!updated) throw new JobNotFoundError();
+  return updated;
 }

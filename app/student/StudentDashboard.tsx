@@ -6,6 +6,7 @@ import type { Resume } from "@/lib/schemas/resume";
 import type { StudentProfile } from "@/lib/schemas/studentProfile";
 import { ResumeStatusCard } from "@/app/student/ResumeStatusCard";
 import { ProfileSummary } from "@/app/student/ProfileSummary";
+import { ApplicationsSection } from "@/app/student/ApplicationsSection";
 import { isTerminalStatus } from "@/app/student/resumeStatusDisplay";
 import { MUTED_TEXT_COLOR } from "@/app/student/theme";
 
@@ -76,6 +77,8 @@ export function StudentDashboard({
         </header>
 
         <ResumeStatusCard resume={resume} onUploaded={refreshProfile} />
+
+        <ApplicationsSection />
 
         {profile ? (
           <ProfileSummary profile={profile} />

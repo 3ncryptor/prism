@@ -37,6 +37,8 @@ export function JobDetailDashboard({
   const [results, setResults] = useState<EnrichedMatchResult[]>([]);
   const [isTriggering, setIsTriggering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [publishedMatchRunId, setPublishedMatchRunId] = useState(job.publishedMatchRunId);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   async function fetchResults(runId: string) {
     const response = await fetch(`/api/admin/jobs/${job._id}/results?runId=${runId}&includeIneligible=true`);
@@ -92,7 +94,34 @@ export function JobDetailDashboard({
     }
   }
 
+  async function handleTogglePublish() {
+    if (!latestRun) return;
+    setError(null);
+    setIsPublishing(true);
+    try {
+      const isPublished = publishedMatchRunId === latestRun._id;
+      const endpoint = isPublished
+        ? `/api/admin/jobs/${job._id}/hide-results`
+        : `/api/admin/jobs/${job._id}/publish-results`;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: isPublished ? undefined : JSON.stringify({ matchRunId: latestRun._id }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to update publish status.");
+      }
+      setPublishedMatchRunId(body.publishedMatchRunId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update publish status.");
+    } finally {
+      setIsPublishing(false);
+    }
+  }
+
   const isRunning = latestRun ? NON_TERMINAL_STATUSES.includes(latestRun.status) : false;
+  const isCurrentRunPublished = Boolean(latestRun && publishedMatchRunId === latestRun._id);
 
   return (
     <div className="min-h-screen bg-white">
@@ -137,7 +166,11 @@ export function JobDetailDashboard({
             </div>
           )}
 
-          <div className="pt-2">
+          <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+            Results: {publishedMatchRunId ? "Published to students" : "Hidden from students"}
+          </NSTypography>
+
+          <div className="flex items-center gap-3 pt-2">
             <NSButton
               variant="primary"
               loading={isTriggering || isRunning}
@@ -146,6 +179,11 @@ export function JobDetailDashboard({
             >
               {latestRun ? "Re-run Matching" : "Run Matching"}
             </NSButton>
+            {latestRun?.status === "COMPLETED" && (
+              <NSButton variant="secondary" loading={isPublishing} onClick={handleTogglePublish}>
+                {isCurrentRunPublished ? "Hide Results" : "Publish Results"}
+              </NSButton>
+            )}
             {job.status !== "READY" && (
               <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
                 This job description is still processing.
