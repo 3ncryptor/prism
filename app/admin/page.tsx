@@ -1,38 +1,24 @@
 import { requireRole } from "@/lib/auth/guard";
 import { signOut } from "@/lib/auth/config";
+import { jobRepository } from "@/lib/db/repositories/jobRepository";
+import { ClientOnlyAdminDashboard } from "@/app/admin/ClientOnlyAdminDashboard";
 
 async function handleSignOut() {
   "use server";
   await signOut({ redirectTo: "/" });
 }
 
-/**
- * Placeholder only — the real admin dashboard is feature #22
- * (buildPlan.md §106, §2.2). This exists so Auth (feature #2) is
- * demonstrable end-to-end: session + role-gating actually work.
- */
+/** buildPlan.md §84, §106 — feature #22. */
 export default async function AdminHome() {
   const session = await requireRole("ADMIN");
+  const jobs = await jobRepository.list();
 
   return (
-    <div className="flex flex-1 flex-col items-start gap-4 bg-background px-6 py-16">
-      <p className="text-sm font-medium tracking-wide text-muted uppercase">
-        Admin
-      </p>
-      <h1 className="text-2xl font-semibold text-foreground">
-        Signed in as {session.user.name} ({session.user.email})
-      </h1>
-      <p className="text-muted">
-        This is a placeholder — the real dashboard is a later feature.
-      </p>
-      <form action={handleSignOut}>
-        <button
-          type="submit"
-          className="rounded border border-border px-4 py-2 text-foreground transition-colors hover:bg-surface"
-        >
-          Sign out
-        </button>
-      </form>
-    </div>
+    <ClientOnlyAdminDashboard
+      adminName={session.user.name ?? ""}
+      adminEmail={session.user.email ?? ""}
+      initialJobs={jobs}
+      onSignOut={handleSignOut}
+    />
   );
 }

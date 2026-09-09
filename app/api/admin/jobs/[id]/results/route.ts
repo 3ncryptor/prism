@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth/guard";
 import { matchRunRepository } from "@/lib/db/repositories/matchRunRepository";
 import { matchResultRepository } from "@/lib/db/repositories/matchResultRepository";
+import { userRepository } from "@/lib/db/repositories/userRepository";
 import type { FitBucket } from "@/lib/matching/types";
 
 const VALID_BUCKETS: FitBucket[] = ["BEST_FIT", "MODERATE_FIT", "LOW_FIT"];
@@ -37,7 +38,15 @@ export async function GET(request: Request, ctx: RouteContext<"/api/admin/jobs/[
     const bucket = bucketParam && VALID_BUCKETS.includes(bucketParam as FitBucket) ? (bucketParam as FitBucket) : undefined;
     const results = await matchResultRepository.listByRun(runId, { bucket, includeIneligible });
 
-    return NextResponse.json({ run, results });
+    const students = await userRepository.findByIds(results.map((r) => r.studentId));
+    const studentById = new Map(students.map((s) => [s._id, s]));
+    const enrichedResults = results.map((result) => ({
+      ...result,
+      studentName: studentById.get(result.studentId)?.name ?? "Unknown student",
+      studentEmail: studentById.get(result.studentId)?.email ?? "",
+    }));
+
+    return NextResponse.json({ run, results: enrichedResults });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: 401 });

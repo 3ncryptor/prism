@@ -41,6 +41,14 @@ export class UserRepository {
     return doc ? toUser(doc) : null;
   }
 
+  /** Batch lookup for admin result tables — avoids N individual queries. */
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (ids.length === 0) return [];
+    const collection = await this.getCollection();
+    const docs = await collection.find({ _id: { $in: ids.map((id) => new ObjectId(id)) } }).toArray();
+    return docs.map(toUser);
+  }
+
   async create(input: {
     email: string;
     name: string;
