@@ -305,20 +305,25 @@ PASS. No agent, including Backend or Frontend under time pressure, may skip this
 
 ## 6. Repo-Specific Conventions
 
-*(Fill this section in for your actual stack — this is where the generic pipeline
-above gets grounded in your real tools.)*
+Prism is a **single Next.js project**, not a turborepo/monorepo — see
+`buildPlan.md` §115 for the finalized directory layout and the rationale for
+not using the `apps/`+`packages/` split originally sketched in `buildPlan.md`
+§7.
 
-- **Language(s) / framework(s):** e.g. TypeScript + Node/Express (backend), React +
-  Vite (frontend)
-- **Package manager:** e.g. npm
-- **Test runner(s):** e.g. Vitest (unit), Playwright (e2e)
-- **Lint/format:** e.g. ESLint + Prettier, run via `npm run lint`
-- **Build command:** e.g. `npm run build`
-- **Directory layout:**
-  - `src/server/` — backend only
-  - `src/client/` — frontend only
-  - `src/shared/` — types/contracts shared between both (PM/Backend define these)
-  - `docs/agent-artifacts/<task-id>/` — pipeline artifacts per task
+- **Language(s) / framework(s):** TypeScript + Next.js (App Router) + React,
+  used for both the web app and the API (Route Handlers). A separately
+  deployable Node worker process (not a serverless function) handles resume/JD
+  processing and matching — see `buildPlan.md` §92, §115.
+- **Package manager:** npm
+- **Test runner(s):** Jest (unit + integration), Playwright (E2E, per
+  `buildPlan.md` §77)
+- **Lint/format:** ESLint (already configured via `eslint.config.mjs`), run
+  via `npm run lint`
+- **Build command:** `npm run build`
+- **Directory layout:** see `buildPlan.md` §115 for the full finalized tree
+  (`app/`, `lib/{db,schemas,services,matching,extraction,embeddings,qdrant,
+  queue,auth,config}`, `workers/`, `scripts/`, `tests/{unit,integration,
+  evaluation}`, `docs/agent-artifacts/<task-id>/`).
 - **Branching:** feature branches off `main`, named `agent/<task-id>-<short-desc>`
 - **PR requirement:** PR description auto-populated from `qa-report.md` verdict +
   links to the four artifacts.
@@ -379,3 +384,13 @@ same context — forces the same context to be re-examined from a different angl
 each stage, which is where most bugs and scope drift actually get caught. The QA
 gate existing as a *distinct, non-skippable* stage (rather than "and also test it
 before you finish") is the single highest-leverage part of this setup.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

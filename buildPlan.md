@@ -148,6 +148,14 @@ Admins can:
 - Export results.
 - Re-run matching.
 - Archive a JD.
+- **Publish or hide match results for students, per JD** (finalized default:
+  hidden — see §86, §113).
+- **Manage the skill taxonomy** (create/edit/deactivate canonical skills,
+  categories, and aliases — finalized as DB-backed and admin-editable, see
+  §113, §116).
+- **Manage scoring configuration versions** (create a new named/versioned set
+  of weights and bucket thresholds, activate it; never mutate a version once
+  it has been used by a match run — see §46, §113, §116).
 
 Admin dashboard:
 
@@ -157,7 +165,9 @@ Admin
 ├── Resumes
 ├── Job Descriptions
 ├── Matching Runs
-└── Results
+├── Results
+├── Skill Taxonomy
+└── Scoring Config
 ```
 
 JD result page:
@@ -420,13 +430,13 @@ Skills can additionally be normalized into canonical skill IDs.
 
 ## 5.6 Authentication
 
-Use an authentication mechanism compatible with university identity.
+**Finalized for V1:** NextAuth v5 + Credentials provider + `bcryptjs` password
+hashing. No external SSO/IdP dependency. University SSO is explicitly deferred
+to a future version — do not build it speculatively into V1's auth flow.
 
-V1 can support:
-
-- email/password 
-
-Prefer university SSO if available.
+Prism is **single-tenant** for V1 (one placement cell, ~500 students). User,
+StudentProfile, and JobProfile schemas do not carry an organization/tenant
+field. Do not add multi-tenancy scaffolding speculatively.
 
 Authorization must be role-based:
 
@@ -435,7 +445,39 @@ STUDENT
 ADMIN
 ```
 
-Never trust a role supplied by the frontend.
+Roles are stored on the `users` MongoDB document and read from the
+server-side session on every request. Never trust a role supplied by the
+frontend, a client-side cookie value, or a request body field.
+
+---
+
+## 5.7 Provider Configuration (Dev vs Prod) — Finalized
+
+The extraction model and embedding model are each selected by environment
+variable through a provider-abstraction interface (`ExtractionProvider`,
+`EmbeddingProvider` — see §115), never hardcoded, per the §90 configuration
+philosophy.
+
+```text
+                Extraction (resume/JD → JSON)   Embeddings
+Development     Gemini                          Gemini embedding model
+Production      Claude (Anthropic)              OpenAI text-embedding-3
+```
+
+Rules:
+
+- Anthropic has no first-party embeddings API — do not attempt to use Claude
+  for embeddings. Production embeddings are OpenAI.
+- Dev and prod embeddings are **different vector spaces**. They must live in
+  separate Qdrant collections (or separate Qdrant instances) and must never be
+  compared, mixed, or migrated between each other without a full re-embed.
+- Switching either provider is an environment-config change
+  (`EXTRACTION_PROVIDER`, `EMBEDDING_PROVIDER` env vars), not a code branch
+  scattered through services — all call sites depend on the provider
+  interface, not a specific vendor SDK.
+- `extractionMetadata.model` (§9) and `modelVersions` (§38) must record which
+  provider/model actually produced a given profile or match, so historical
+  records remain interpretable after a provider switch.
 
 ---
 
@@ -2108,7 +2150,23 @@ GET    /api/admin/jobs/:id/results/:studentId
 POST   /api/admin/jobs/:id/rematch
 
 GET    /api/admin/matching-runs/:id
+
+POST   /api/admin/jobs/:id/publish-results
+POST   /api/admin/jobs/:id/hide-results
+
+GET    /api/admin/skill-taxonomy
+POST   /api/admin/skill-taxonomy
+PATCH  /api/admin/skill-taxonomy/:id
+
+GET    /api/admin/scoring-configs
+POST   /api/admin/scoring-configs
+POST   /api/admin/scoring-configs/:id/activate
 ```
+
+`publish-results` sets `jobs.publishedMatchRunId` to the given (completed)
+match run's ID; `hide-results` clears it. `/api/matches` (student-facing)
+only returns results for a job whose `publishedMatchRunId` is set and matches
+the run the result belongs to. See §113.
 
 ---
 
@@ -2153,14 +2211,20 @@ processingJobs
 matchRuns
 matchResults
 auditLogs
+skillTaxonomy
+skillAliases
+scoringConfigs
 ```
+
+**Finalized:** `skillTaxonomy`, `skillAliases`, and `scoringConfigs` are
+required, not optional — they are DB-backed and admin-editable (see §113,
+§116), not static files. `scoringConfigs` documents are immutable once
+referenced by any `matchRun` (create a new version instead of editing one in
+place, per §46).
 
 Optional:
 
 ```text
-skillTaxonomy
-skillAliases
-scoringConfigs
 promptVersions
 ```
 
@@ -3034,14 +3098,21 @@ Main JD page:
 │ Software Engineer — ABC Corp                │
 │                                             │
 │ 421 candidates evaluated                    │
+│ Results: Hidden from students               │
 │                                             │
 │ Best Fit       48                           │
 │ Moderate       183                          │
 │ Low Fit        190                          │
 │                                             │
-│ [Export CSV] [Re-run Matching]              │
+│ [Export CSV] [Re-run Matching] [Publish Results] │
 └─────────────────────────────────────────────┘
 ```
+
+**Finalized (§113):** results are hidden from students by default. Publishing
+points the JD's visible results at the currently completed match run;
+re-running matching does **not** silently change what students already see —
+the admin must explicitly publish the new run to swap it in. This avoids
+students seeing a mid-rematch gap or a config change nobody signed off on.
 
 Then:
 
@@ -3101,7 +3172,12 @@ Score: 87
 
 Do not expose internal ranking information if the placement-cell policy does not permit it.
 
-Make visibility configurable.
+**Finalized default (§113):** a student's fit result for a given JD is hidden
+until an admin explicitly publishes results for that JD (see §84). Before
+publishing, the student's "Applications" section for that JD shows only that
+they were evaluated ("Under review"), not a score/bucket/evidence. Make this
+configurable per JD via the `jobs.publishedMatchRunId` field, not a single
+global flag.
 
 ---
 
@@ -3918,16 +3994,24 @@ The final V1 system should look like:
 
 | Decision | V1 Choice |
 |---|---|
-| Backend | Next.js + TypeScript |
+| Backend | Next.js + TypeScript (single project, not a monorepo — §115) |
 | Database | MongoDB |
 | Vector DB | Qdrant |
 | File storage | S3 |
 | Queue | Redis + BullMQ |
 | Resume extraction | PDF/DOCX parsers |
 | OCR | Only as fallback |
-| LLM | Structured-output LLM |
+| LLM (dev) | Gemini |
+| LLM (prod) | Claude (Anthropic) |
+| Embeddings (dev) | Gemini embedding model |
+| Embeddings (prod) | OpenAI text-embedding-3 |
+| Auth | NextAuth v5 + Credentials + bcrypt (no SSO in V1) |
+| Multi-tenancy | Single-tenant (V1) |
+| Result visibility | Hidden until admin publishes, per JD (§113) |
+| Skill taxonomy / scoring config | DB-backed, admin-editable (§113, §116) |
+| Test runner | Jest (unit/integration) |
 | Schema validation | Zod |
-| Embeddings | One consistent embedding model |
+| Embeddings | One consistent embedding model per environment |
 | Matching | Feature-level |
 | Skill matching | Taxonomy + exact + alias + semantic |
 | Hard requirements | Deterministic |
@@ -3983,3 +4067,337 @@ Build this pipeline cleanly enough that individual components can later be repla
 The V1 objective is not to create the most complicated AI system.
 
 The objective is to create a **measurable, explainable, reproducible matching system with a strong baseline**, and then use real labeled data to determine where machine learning actually improves it.
+
+---
+
+# 113. Finalized Domain Model Additions
+
+The original spec (§13, §14) referenced several types without defining them,
+and left the result-visibility mechanism unspecified. This section defines
+them. These are additive/corrective to §8–§14, §45 — not a redesign.
+
+## 113.1 Missing type definitions
+
+```ts
+interface Education {
+  degree: string;              // e.g. "B.Tech"
+  field: string;                // e.g. "Computer Science"
+  institution: string;
+  startYear?: number;
+  endYear?: number;
+  cgpa?: number;
+  evidence: string[];
+}
+
+interface Certification {
+  name: string;
+  issuer?: string;
+  issuedDate?: string;
+  evidence: string[];
+}
+
+interface Achievement {
+  title: string;
+  description?: string;
+  evidence: string[];
+}
+
+interface EducationRequirement {
+  degree: string[];             // acceptable degrees, e.g. ["B.Tech", "B.E."]
+  field?: string[];              // acceptable fields/disciplines; empty = any
+  minCgpa?: number;
+  disqualifying: boolean;        // true = ineligible if unmet, per §32
+}
+
+interface ExperienceRequirement {
+  minMonths: number;
+  domain?: string;                // e.g. "backend", "data"
+  disqualifying: boolean;
+}
+
+interface JobConstraint {
+  name: string;                   // e.g. "Minimum CGPA 7.0", "Graduation year 2026"
+  type: "GRADUATION_YEAR" | "CGPA" | "DEGREE" | "CERTIFICATION" | "OTHER";
+  value: string | number;
+  disqualifying: boolean;          // true → eligible = false (§32); false → penalty applies
+}
+
+interface SemanticRequirement {
+  description: string;             // free-text responsibility/requirement, e.g.
+                                    // "Build AI-powered applications"
+  importance: "HIGH" | "MEDIUM" | "LOW";
+  canonicalSkillHints?: string[];   // optional canonical skills this maps to,
+                                     // to bias retrieval (§42) without hardcoding a match
+}
+```
+
+**Rule (extends §32):** `JobConstraint.disqualifying` and
+`EducationRequirement.disqualifying` / `ExperienceRequirement.disqualifying`
+are the explicit, schema-level distinction between "penalty" and "ineligible"
+that §32 requires. The matching engine must read this field, never infer
+disqualification from importance level or wording.
+
+## 113.2 Result visibility (extends §45, §51, §86)
+
+```ts
+interface Job {
+  // ...existing fields...
+  publishedMatchRunId: string | null; // null = results hidden from students
+  publishedAt: Date | null;
+}
+```
+
+- Default on JD creation: `publishedMatchRunId: null` (hidden).
+- `POST /api/admin/jobs/:id/publish-results` sets `publishedMatchRunId` to a
+  specific **completed** `matchRun._id` and stamps `publishedAt`.
+- `POST /api/admin/jobs/:id/hide-results` sets it back to `null`.
+- Re-running matching (`POST /api/admin/jobs/:id/rematch`) does **not**
+  change `publishedMatchRunId` — students keep seeing the last published run
+  until an admin explicitly publishes the new one. This prevents a gap where
+  students briefly see nothing during a rematch, and prevents an unreviewed
+  rematch from silently becoming visible.
+- Student-facing `GET /api/matches` only returns a result if
+  `result.matchRunId === job.publishedMatchRunId` for that job.
+
+## 113.3 Skill taxonomy & scoring config (extends §26, §53, §90)
+
+```ts
+interface SkillTaxonomyEntry {
+  _id: string;
+  canonicalName: string;             // e.g. "node.js"
+  displayName: string;               // e.g. "Node.js"
+  category: Skill["category"];
+  aliases: string[];                 // e.g. ["nodejs", "node"]
+  isActive: boolean;                 // soft-delete; never hard-delete a
+                                       // canonical skill referenced by
+                                       // historical profiles
+  createdBy: string;                  // admin userId
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ScoringConfig {
+  _id: string;
+  version: string;                    // e.g. "scoring-v2"
+  isActive: boolean;                   // exactly one active config at a time
+  weights: {
+    hardRequirements: number;
+    skills: number;
+    experience: number;
+    projects: number;
+    education: number;
+    other: number;
+  };
+  buckets: { bestFit: number; moderateFit: number };
+  semanticThresholds: { strong: number; possible: number };
+  mandatoryPenalty: number;
+  createdBy: string;
+  createdAt: Date;
+}
+```
+
+**Rule (extends §46):** a `ScoringConfig` document is immutable once any
+`matchRun` references its `version`. "Editing" weights in the admin UI always
+creates a new `ScoringConfig` document and, if activated, flips
+`isActive` on the previous one to `false` — it never mutates a version in
+place. This is what makes historical match results reproducible per §46/§108
+Principle 5 even though config is now DB-backed instead of a static file.
+
+---
+
+# 114. Evidence Verification Algorithm (extends §20 Rule 2)
+
+§20 Rule 2 requires checking whether an LLM-claimed evidence snippet
+"approximately exists" in the source resume/JD text, without specifying how.
+V1 uses a three-step deterministic check, cheapest first:
+
+```text
+1. Normalize both the claimed evidence snippet and the source text:
+   lowercase, collapse whitespace, strip punctuation.
+
+2. Exact substring containment:
+   normalized(evidence) is a substring of normalized(sourceText)
+   -> verified = true, confidence contribution = 1.0
+
+3. If not contained, token-overlap fallback:
+   tokens(evidence) vs tokens(best-matching sliding window of sourceText)
+   Jaccard similarity >= 0.6
+   -> verified = true, confidence contribution = 0.7
+
+4. Otherwise:
+   verified = false -> mark the skill/claim "needs_review" (§20 Rule 3);
+   do not discard outright -- surface it to the admin rather than silently
+   dropping potentially-real information the LLM paraphrased.
+```
+
+This runs once per extracted skill/experience/project claim during
+`STRUCTURING`/`VALIDATING` (§17), before the profile is persisted. The
+per-claim `verified` boolean and method (`EXACT` | `FUZZY` | `UNVERIFIED`)
+feed directly into the Confidence Engine's `evidenceCoverage` input (§35, §36)
+-- do not recompute verification separately at matching time.
+
+---
+
+# 115. Repository Structure — Finalized
+
+§7 sketched a `apps/`+`packages/`+`workers/` turborepo layout, with a fallback
+of "keep the same logical separation inside one Next.js project." **The
+fallback is what Prism actually uses** — the repo was initialized as a single
+Next.js project (`app/` at the root), and there's no scale/team-size reason
+to introduce turborepo overhead for a single-tenant, single-app product.
+
+**See `docs/BACKEND_ARCHITECTURE.md` for the authoritative, file-level version
+of this tree** (every file under `lib/`, `app/api/`, `workers/`), plus
+repository/service method signatures, the matching engine's exact algorithms,
+worker pipeline pseudocode, and API contracts. The summary tree below is kept
+for a quick top-level overview only — `docs/BACKEND_ARCHITECTURE.md` is what
+Backend should actually build from.
+
+```text
+prism/
+├── app/                       # Next.js App Router
+│   ├── (auth)/                # sign-in/sign-up pages
+│   ├── student/                # student dashboard pages
+│   ├── admin/                  # admin dashboard pages
+│   └── api/                    # Route Handlers (thin — see §47/§48)
+│
+├── lib/
+│   ├── db/                     # MongoDB client + repositories (§49)
+│   ├── schemas/                 # Zod schemas, shared TS types (§9-§14, §113)
+│   ├── services/                 # ResumeService, JobService, MatchingService,
+│   │                              #   ScoringService, ConfidenceService, etc. (§48)
+│   ├── matching/                  # EligibilityEngine, SkillMatcher,
+│   │                                #   ExperienceMatcher, ProjectMatcher,
+│   │                                #   EducationMatcher, ScoreAggregator,
+│   │                                #   PenaltyEngine, BucketEngine,
+│   │                                #   ConfidenceEngine (§62)
+│   ├── extraction/                  # ExtractionProvider interface +
+│   │                                  #   GeminiExtractionProvider,
+│   │                                  #   ClaudeExtractionProvider (§5.7)
+│   ├── embeddings/                   # EmbeddingProvider interface +
+│   │                                   #   GeminiEmbeddingProvider,
+│   │                                   #   OpenAIEmbeddingProvider (§5.7)
+│   ├── qdrant/                        # Qdrant client + collection helpers
+│   ├── queue/                          # BullMQ setup, job definitions (§58)
+│   ├── auth/                           # NextAuth v5 config, session helpers
+│   └── config/                          # env loading, matchingConfig (§90)
+│
+├── workers/                              # separately-run Node process(es),
+│                                           #   not serverless (§92)
+│   ├── document-worker.ts
+│   └── matching-worker.ts
+│
+├── scripts/
+│   └── seed.ts
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── evaluation/                        # §67, §78 fixtures + npm run evaluate
+│
+├── docs/
+│   └── agent-artifacts/<task-id>/         # spec.md, backend-handoff.md,
+│                                            #   frontend-handoff.md, qa-report.md
+│
+├── package.json
+├── tsconfig.json
+└── buildPlan.md
+```
+
+`lib/*` modules are plain TypeScript with no Next.js dependency, so
+`workers/*` can import them directly without booting the Next.js runtime.
+
+---
+
+# 116. Skill Taxonomy & Scoring Config Admin UI — Feature Addendum
+
+§99 originally framed the skill taxonomy as "start with a manually curated
+taxonomy" (implying a static file). §113.3 finalizes both taxonomy and
+scoring config as DB-backed and admin-editable. This section is the
+feature-level addendum PM should expand into a full `spec.md` when this
+feature is reached in the build order (§117).
+
+**Skill Taxonomy admin page:**
+- Table of canonical skills: name, category, aliases, active/inactive, usage
+  count (how many profiles/JDs reference it).
+- Create/edit a skill: name, category, aliases (add/remove).
+- Deactivate (soft-delete) a skill — never hard-delete one referenced by any
+  existing `StudentProfile` or `JobProfile`, since that would corrupt
+  historical evidence trails.
+- Seed data (§94) still ships an initial taxonomy via `scripts/seed.ts`; the
+  admin UI is for maintaining it afterward, not a replacement for seeding.
+
+**Scoring Config admin page:**
+- Shows the currently active config (weights, bucket thresholds, semantic
+  thresholds, mandatory penalty) and a history list of prior versions.
+- "Create new version" form, pre-filled from the active config, validated so
+  weights sum to 1.0 (±rounding tolerance) before saving.
+- "Activate" on a draft/prior version — flips `isActive`, does not delete or
+  mutate the previously active one (§113.3).
+- Activating a new config does **not** retroactively change historical
+  `matchResult` documents or trigger a rematch — it only affects match runs
+  started after activation (§46).
+
+Both pages are ADMIN-only, follow the grayscale design system (§6 in
+`AGENTS.md`), and are out of scope for the Student role entirely.
+
+---
+
+# 117. Feature Build Order — Finalized Additions
+
+§106's numbered 1–30 list stands as the base dependency order and is **not
+renumbered here** (it's cross-referenced elsewhere by number). Three features
+are inserted into that order to cover what §113–§116 finalized. Build them
+where noted, each as its own PM → Backend → Frontend → QA cycle per
+`AGENTS.md`:
+
+```text
+...
+17. Matching engine
+18. Scoring
+19. Bucketing
+20. Confidence
+21. Match runs
+22. Admin dashboard
+22a. Publish/hide match results          <- NEW, insert here
+22b. Skill Taxonomy admin UI              <- NEW, insert here
+22c. Scoring Config admin UI               <- NEW, insert here
+23. Evidence UI
+24. CSV export
+25. Evaluation harness
+...
+```
+
+Rationale for placement: 22a–22c depend on the Admin dashboard shell (#22)
+existing, and on `scoringConfigs`/`skillTaxonomy` already being seeded
+(§94) and consumed by the matching engine (#17-#20) — building the
+*editing* UI before the engine can *read* those collections would be
+building ahead of what's testable. #22a (publish/hide) also gates what the
+Student dashboard (#10) can legitimately show once match results exist, so
+QA for #22a should explicitly re-verify the Student-side "hidden by default"
+behavior from §86/§113.2, not just the admin toggle itself.
+
+---
+
+# 118. V1 Decision Log
+
+Decisions made resolving ambiguities/conflicts between this document and the
+initial repo scaffold, and open questions the original spec left unresolved.
+Dated 2026-09-04.
+
+| # | Question | Decision | Reason |
+|---|---|---|---|
+| 1 | `buildPlan.md` mandates Qdrant; `package.json` had Pinecone installed | **Qdrant** | Follow the written spec; Pinecone SDK to be removed from `package.json` when object storage/embeddings features are built |
+| 2 | Auth: NextAuth+Credentials vs WorkOS | **NextAuth v5 + Credentials + bcrypt** | Already installed, zero external vendor, no real SSO requirement exists yet (§5.6) |
+| 3 | LLM/embeddings provider, dev vs prod | **Dev: Gemini (both). Prod: Claude (extraction) + OpenAI (embeddings)** | Gemini already installed for dev; Anthropic has no embeddings API so OpenAI covers that gap in prod (§5.7) |
+| 4 | Single-tenant vs multi-tenant | **Single-tenant** | Matches every schema in the doc as written; multi-tenancy is the most expensive thing to retrofit, not needed for the actual use case (one placement cell, ~500 students) |
+| 5 | Student result visibility default | **Hidden until admin publishes, per JD** | §86's "make visibility configurable" was unspecified on granularity/owner; admin-controlled per-JD publish avoids a global on/off that doesn't match real placement-cell workflow (§113.2) |
+| 6 | Skill taxonomy & scoring config: static files vs DB+admin UI | **DB-backed, admin-editable** | Enables the placement cell to tune weights/taxonomy without a code deploy; adds real scope (new admin pages, §116) but was explicitly requested over the static-file default |
+| 7 | Test runner | **Jest** (unit/integration) + Playwright (E2E, already specified in §77) | Explicit choice over the recommended Vitest default |
+| 8 | Repo layout: turborepo vs single Next.js project | **Single Next.js project** (§115) | Matches what's already scaffolded (`app/` at repo root); no team-size/scale justification for monorepo overhead at V1 |
+
+Undefined types from the original spec, now defined: `Education`,
+`Certification`, `Achievement`, `EducationRequirement`,
+`ExperienceRequirement`, `JobConstraint`, `SemanticRequirement` (§113.1).
+Evidence-verification mechanism (§20 Rule 2), now concretely specified
+(§114).
