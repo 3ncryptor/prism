@@ -1,15 +1,9 @@
 import { requireRole } from "@/lib/auth/guard";
-import { signOut } from "@/lib/auth/config";
 import { studentProfileRepository } from "@/lib/db/repositories/studentProfileRepository";
 import { getActiveResume } from "@/lib/services/resumeService";
 import { ClientOnlyStudentDashboard } from "@/app/student/ClientOnlyDashboard";
 
-async function handleSignOut() {
-  "use server";
-  await signOut({ redirectTo: "/" });
-}
-
-/** buildPlan.md §106, §97 — feature #10. */
+/** buildPlan.md §106, §97 — feature #10. Shell (identity/sign-out) lives in app/student/layout.tsx (feature 27a). */
 export default async function StudentHome() {
   const session = await requireRole("STUDENT");
 
@@ -18,13 +12,5 @@ export default async function StudentHome() {
     getActiveResume(session.user.id),
   ]);
 
-  return (
-    <ClientOnlyStudentDashboard
-      studentName={session.user.name ?? ""}
-      studentEmail={session.user.email ?? ""}
-      initialProfile={profile}
-      initialResume={resume}
-      onSignOut={handleSignOut}
-    />
-  );
+  return <ClientOnlyStudentDashboard initialProfile={profile} initialResume={resume} />;
 }

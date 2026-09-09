@@ -6,17 +6,16 @@ import type { Job } from "@/lib/schemas/job";
 import type { MatchRun } from "@/lib/schemas/matchRun";
 import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
 import { ResultTable, type EnrichedMatchResult } from "@/app/admin/jobs/[id]/ResultTable";
+import { PageHeader } from "@/lib/layout/PageHeader";
+import { Card } from "@/lib/layout/Card";
 
 const POLL_INTERVAL_MS = 3000;
 const NON_TERMINAL_STATUSES: MatchRun["status"][] = ["QUEUED", "RUNNING"];
 
 interface JobDetailDashboardProps {
-  adminName: string;
-  adminEmail: string;
   job: Job;
   initialLatestRun: MatchRun | null;
   initialBucketCounts: Record<"BEST_FIT" | "MODERATE_FIT" | "LOW_FIT", number> | null;
-  onSignOut: () => void;
 }
 
 interface ResultsResponse {
@@ -25,12 +24,9 @@ interface ResultsResponse {
 }
 
 export function JobDetailDashboard({
-  adminName,
-  adminEmail,
   job,
   initialLatestRun,
   initialBucketCounts,
-  onSignOut,
 }: JobDetailDashboardProps) {
   const [latestRun, setLatestRun] = useState(initialLatestRun);
   const [bucketCounts, setBucketCounts] = useState(initialBucketCounts);
@@ -124,25 +120,10 @@ export function JobDetailDashboard({
   const isCurrentRunPublished = Boolean(latestRun && publishedMatchRunId === latestRun._id);
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-12">
-        <header className="flex items-center justify-between gap-4">
-          <div>
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-              {adminName} · {adminEmail}
-            </NSTypography>
-          </div>
-          <form action={onSignOut}>
-            <NSButton variant="tertiary" type="submit">
-              Sign out
-            </NSButton>
-          </form>
-        </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader title={job.title} />
 
-        <section className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
-          <NSTypography variant="heading-sb-h2" as="h1">
-            {job.title}
-          </NSTypography>
+      <Card className="flex flex-col gap-3 bg-gray-50">
           {job.company && (
             <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
               {job.company}
@@ -207,14 +188,13 @@ export function JobDetailDashboard({
               description={latestRun.error?.message ?? "The matching run failed. Please try again."}
             />
           )}
-        </section>
+      </Card>
 
-        <section className="flex flex-col gap-3">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Results
-          </NSTypography>
-          <ResultTable results={results} />
-        </section>
+      <div className="flex flex-col gap-3">
+        <NSTypography variant="heading-sb-h4" as="h2">
+          Results
+        </NSTypography>
+        <ResultTable results={results} />
       </div>
     </div>
   );

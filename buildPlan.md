@@ -4498,3 +4498,71 @@ Evidence-verification mechanism (§20 Rule 2), now concretely specified
 | 11 | Object storage | **Real AWS S3**, credentials provided 2026-09-11 | Matches the original §5.1 recommendation and the earlier decision log's choice; no longer using MinIO except for automated tests |
 | 12 | Prod LLM/embedding providers (Anthropic, OpenAI): build now or defer | **Defer** | Prove out the Gemini (dev) path fully first; build the adapters once that's validated, not speculatively alongside it |
 | 13 | Per-feature test coverage depth | **Reduced, deliberately.** Keep tests for deterministic logic that doesn't need real content (matching engine scoring/bucketing, feature #17-21). Skip exhaustive suites for anything whose real value depends on real files/content (extraction quality, embedding relevance) — synthetic fixtures there were producing false confidence, not real verification, and real API/Docker test-infra debugging was consuming more session cost than the feature logic itself | User's explicit call, following feature #8's experience: without real resumes/JDs, testing extraction "quality" against invented fixtures doesn't actually verify quality. Manual verification with real data, once available, is the real check for those. `lint`/`typecheck`/`build` staying green remains non-negotiable — those catch real bugs cheaply, as this session's several real-bug-finds via typecheck/build attest |
+
+---
+
+# 119. Product & UI Rebuild — Screens and Feature Additions (2026-09-10)
+
+Features #22-27 shipped functionally correct but visually and structurally
+inconsistent — each page was built independently across many separate
+feature cycles with its own header/typography/layout markup, no shared nav,
+and no way for a student to manage more than one resume. User review after
+#27 identified this directly. Rather than patch pages individually, this
+section inserts a **new batch of features between #27 and #28**, using the
+same lettered-insertion convention §117 already established for 22a-22c.
+Detailed screen-by-screen design lives in `docs/screens.md` — this section
+records the *decisions*, not the wireframes.
+
+**Insert into the §106/§117 build order:**
+
+```text
+...
+27. Observability
+27a. Layout shell + navigation (admin + student)      <- NEW, insert here
+27b. Landing + sign-in redesign                        <- NEW, insert here
+27c. Admin leaderboard + manual CV review + Draft/Live <- NEW, insert here
+27d. Multi-resume support                              <- NEW, insert here
+27e. Job roles + resume routing                        <- NEW, insert here
+27f. Student profile page                              <- NEW, insert here
+27g. Forgot password (self-service, email)             <- NEW, insert here
+28. E2E testing
+29. Performance testing
+30. Deployment
+...
+```
+
+## 119.1 Decisions
+
+| # | Question | Decision | Reason |
+|---|---|---|---|
+| 14 | Multi-resume matching: evaluate every published resume, an explicit "Apply" flow, or route by role? | **Route by job role, no Apply flow.** Each JD declares one `jobRole` (from a small admin-managed taxonomy). Each resume optionally declares one `jobRole`, or none (= global/generic). For a given job, a student is evaluated using: their resume tagged with that job's role, **else** their global (untagged) resume, **else** skipped entirely for that job — never both, never neither if either exists | Superseded from the original "evaluate every published resume, Apply is additive" draft after the user pointed out that with automatic, admin-triggered evaluation across every JD, an explicit apply step doesn't fit the workflow — role-based routing achieves the same "different resume for different role" goal without inventing an apply/application concept or a students-browse-jobs screen |
+| 15 | Does one student ever appear more than once on one job's leaderboard? | **No.** Because selection (#14) always picks exactly one resume per student per job, `MatchResult` stays one row per (matchRun, student), same shape as before multi-resume existed. The row additionally records which resume produced it, for transparency | Direct consequence of #14's routing-not-broadcast model — this is simpler than the original draft, not more complex |
+| 16 | `StudentProfile.isActive` semantics | **Repurposed** from "the one currently active profile" (old single-resume model) to "published for matching" (new multi-resume model) — many can be `true` per student simultaneously, one per resume. Upload no longer deactivates prior resumes | Reuses the existing field/index rather than adding a parallel flag; the old single-resume invariant it enforced no longer holds once multi-resume ships |
+| 17 | Forgot password: self-service email vs. admin-triggered reset | **Self-service email**, via a new provider — **Resend** (default recommendation, pending user confirmation of the actual API key when feature 27g is built) | User's explicit choice; no email-sending capability exists anywhere in this stack today, so this is new infrastructure, not just new application code |
+| 18 | Admin leaderboard top-N cutoff | **Admin-configurable per job** (`Job.leaderboardSize`, default 10), not a fixed platform-wide constant | User's explicit choice; different JDs may reasonably want different shortlist sizes |
+| 19 | Does a JD need an admin-facing Draft/Live status? | **Yes.** `Job.listingStatus: "DRAFT" \| "LIVE"`, defaulting to `DRAFT` once processing reaches `READY`. Distinct from both the processing `status` field and the results `publishedMatchRunId` concept — naming is deliberately "Draft/Live" (not "Published") to avoid colliding with "Results: Published/Hidden" in the UI | User's explicit ask; with "100s of JDs" on the platform, admins need to distinguish JDs they're still reviewing from ones they've confirmed are ready to actively run |
+| 20 | Does making a JD Live require reviewing anything first? | **The parsed JD profile.** Admin Job Detail now shows the full parsed `JobProfile` (required/preferred skills, experience/education requirements, responsibilities) so the admin can confirm extraction was correct before flipping Draft → Live | Directly requested ("view the parsed profile for every job"); also the natural place to catch a bad extraction before it drives real evaluation |
+| 21 | Does "Run Matching" require `listingStatus: "LIVE"`? | **Yes, recommended default** — disabled while Draft | Prevents accidentally evaluating candidates against a JD the admin hasn't confirmed the parse of yet; cheap to relax later if it proves too strict |
+| 22 | Job roles: fixed taxonomy vs. free text on the JD/resume | **Small admin-managed taxonomy**, mirroring the existing Skill Taxonomy pattern (canonical name, admin CRUD, `/admin/job-roles`) | Free-text role matching ("Data Science" vs "Data Scientist" vs "DS") would silently fail to route resumes correctly on a typo — exact-match against a canonical list is deterministic and cheap to build given Skill Taxonomy's UI/service pattern already exists to copy |
+| 23 | On the Job/Resume forms, is the role field a plain dropdown or a tag-styled picker? | **Tag-styled picker** (chip display, autocomplete search), but still **single-value** — one role per JD, one role per resume (or none = global). The picker only lets you **select an existing canonical role**; it never allows creating a new one inline. New roles are created exclusively via the `/admin/job-roles` admin page | User's explicit ask for a nicer tag-style interaction, combined with the standardization requirement — allowing inline free-text creation from the Job/Resume forms is exactly how "Data Science" vs "DATA SCIENCE" would fragment the taxonomy, so creation stays admin-gated even though the picker widget looks like a tag input |
+| 24 | Can a student have two published resumes tagged with the same role? | **No** — enforced as a uniqueness constraint: at most one published resume per role (plus at most one published untagged/global resume) per student. Publishing a second resume with an already-published role requires unpublishing the first | User confirmed this explicitly ("per job role only 1 resume") — keeps `selectResumeForJob()` unambiguous, no tiebreak logic needed |
+
+## 119.2 New/changed schemas (finalized during screen design, `docs/screens.md` §4.6-4.11)
+
+- `Resume` gains `label: string` (student-provided name, e.g. "Data Science Resume") and `jobRole: string | null` (null = global/generic resume).
+- `Job` gains `jobRole: string` (required, from the new taxonomy), `listingStatus: "DRAFT" | "LIVE"` (default `DRAFT`), and `leaderboardSize: number` (default 10).
+- New collection `jobRoleTaxonomy`: `{_id, canonicalName, displayName, isActive, createdBy, createdAt, updatedAt}` — same shape/service pattern as `skillTaxonomy`, admin-managed.
+- `User` gains optional `phone`, `linkedinUrl`, `githubUrl`, `portfolioUrl`, `rollNumber`, `branch`, `batchYear` (all `nullish()`).
+- `MatchResult` gains an optional resume reference (e.g. `resumeId`/`resumeLabel`) for display/evidence transparency only — not required for uniqueness, since selection already guarantees one result per (matchRun, student).
+- New pure function `selectResumeForJob(jobRole, studentResumes)` in the matching layer: role-match → else global → else `null` (skip). Deterministic, no I/O — gets full unit test coverage per this project's existing testing-scope rule for matching-engine-style logic.
+- No `applications` collection — dropped along with the Apply flow.
+
+## 119.3 Component/UI standardization
+
+`docs/screens.md` §1 inventories which already-installed Grauity components
+(`Table`, `Tabs`, `Pagination`, `Modal`, `DropdownMenu`) have gone unused so
+far in favor of hand-rolled markup, and defines the shared primitives every
+page was missing (`AppShell`, `Sidebar`, `TopBar`, `PageHeader`, `Card`,
+`BucketPill`, `EmptyState`) that 27a and later features build once and reuse,
+instead of each feature's Frontend stage re-inventing its own header as
+happened across #22-27.

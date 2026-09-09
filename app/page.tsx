@@ -13,7 +13,7 @@ export default async function Home() {
 
   return (
     <div className="flex flex-1 items-center justify-center bg-background px-6">
-      <main className="flex max-w-xl flex-col items-start gap-4 text-left">
+      <div role="main" className="flex max-w-xl flex-col items-start gap-4 text-left">
         <p className="text-sm font-medium tracking-wide text-muted uppercase">
           Prism
         </p>
@@ -30,7 +30,7 @@ export default async function Home() {
         >
           Sign in
         </Link>
-      </main>
+      </div>
     </div>
   );
 }

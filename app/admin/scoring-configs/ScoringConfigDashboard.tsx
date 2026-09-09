@@ -4,12 +4,11 @@ import { useState } from "react";
 import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { ScoringConfig } from "@/lib/schemas/scoringConfig";
 import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { PageHeader } from "@/lib/layout/PageHeader";
+import { Card } from "@/lib/layout/Card";
 
 interface ScoringConfigDashboardProps {
-  adminName: string;
-  adminEmail: string;
   initialVersions: ScoringConfig[];
-  onSignOut: () => void;
 }
 
 type WeightKey = keyof ScoringConfig["weights"];
@@ -61,7 +60,7 @@ const BLANK_FORM: FormState = {
   mandatoryPenalty: "",
 };
 
-export function ScoringConfigDashboard({ adminName, adminEmail, initialVersions, onSignOut }: ScoringConfigDashboardProps) {
+export function ScoringConfigDashboard({ initialVersions }: ScoringConfigDashboardProps) {
   const [versions, setVersions] = useState(initialVersions);
   const active = versions.find((v) => v.isActive) ?? null;
   const [form, setForm] = useState<FormState>(active ? toFormState(active) : BLANK_FORM);
@@ -132,41 +131,31 @@ export function ScoringConfigDashboard({ adminName, adminEmail, initialVersions,
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-12">
-        <header className="flex items-center justify-between gap-4">
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader title="Scoring Config" />
+
+      {active && (
+        <Card className="flex flex-col gap-2 bg-gray-50">
+          <div className="flex items-center gap-3">
+            <NSTypography variant="heading-sb-h4" as="h2">Active: {active.version}</NSTypography>
+            <NSPill color="success" isActive>Active</NSPill>
+          </div>
           <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-            {adminName} · {adminEmail}
+            Weights: {WEIGHT_FIELDS.map(({ key, label }) => `${label} ${active.weights[key]}`).join(", ")}
           </NSTypography>
-          <form action={onSignOut}>
-            <NSButton variant="tertiary" type="submit">Sign out</NSButton>
-          </form>
-        </header>
+          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+            Buckets: Best Fit ≥ {active.buckets.bestFit}, Moderate Fit ≥ {active.buckets.moderateFit}
+          </NSTypography>
+          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+            Semantic thresholds: strong ≥ {active.semanticThresholds.strong}, possible ≥ {active.semanticThresholds.possible}
+          </NSTypography>
+          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+            Mandatory penalty: {active.mandatoryPenalty}
+          </NSTypography>
+        </Card>
+      )}
 
-        <NSTypography variant="heading-sb-h2" as="h1">Scoring Config</NSTypography>
-
-        {active && (
-          <section className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 p-6">
-            <div className="flex items-center gap-3">
-              <NSTypography variant="heading-sb-h4" as="h2">Active: {active.version}</NSTypography>
-              <NSPill color="success" isActive>Active</NSPill>
-            </div>
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-              Weights: {WEIGHT_FIELDS.map(({ key, label }) => `${label} ${active.weights[key]}`).join(", ")}
-            </NSTypography>
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-              Buckets: Best Fit ≥ {active.buckets.bestFit}, Moderate Fit ≥ {active.buckets.moderateFit}
-            </NSTypography>
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-              Semantic thresholds: strong ≥ {active.semanticThresholds.strong}, possible ≥ {active.semanticThresholds.possible}
-            </NSTypography>
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-              Mandatory penalty: {active.mandatoryPenalty}
-            </NSTypography>
-          </section>
-        )}
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
+      <Card as="form" onSubmit={handleSubmit} className="flex flex-col gap-3 bg-gray-50">
           <NSTypography variant="heading-sb-h4" as="h2">Create new version</NSTypography>
           <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
             Pre-filled from the active config — adjust values and save as a new version. Existing versions are never edited in place.
@@ -203,35 +192,34 @@ export function ScoringConfigDashboard({ adminName, adminEmail, initialVersions,
             <NSButton type="submit" variant="primary" loading={isSaving}>Save as new version</NSButton>
           </div>
           {error && <NSAlert variant="error" icon={null} description={error} />}
-        </form>
+      </Card>
 
-        <section className="flex flex-col gap-3">
-          <NSTypography variant="heading-sb-h4" as="h2">Version history</NSTypography>
-          <div className="flex flex-col gap-2">
-            {versions.map((version) => (
-              <div key={version._id} className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
-                <div>
-                  <NSTypography variant="paragraph-sb-p2" as="span">{version.version}</NSTypography>
-                  <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                    {new Date(version.createdAt).toLocaleString()}
-                  </NSTypography>
-                </div>
-                {version.isActive ? (
-                  <NSPill color="success" isActive>Active</NSPill>
-                ) : (
-                  <NSButton
-                    variant="tertiary"
-                    size="small"
-                    loading={activatingId === version._id}
-                    onClick={() => handleActivate(version._id)}
-                  >
-                    Activate
-                  </NSButton>
-                )}
+      <div className="flex flex-col gap-3">
+        <NSTypography variant="heading-sb-h4" as="h2">Version history</NSTypography>
+        <div className="flex flex-col gap-2">
+          {versions.map((version) => (
+            <div key={version._id} className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
+              <div>
+                <NSTypography variant="paragraph-sb-p2" as="span">{version.version}</NSTypography>
+                <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+                  {new Date(version.createdAt).toLocaleString()}
+                </NSTypography>
               </div>
-            ))}
-          </div>
-        </section>
+              {version.isActive ? (
+                <NSPill color="success" isActive>Active</NSPill>
+              ) : (
+                <NSButton
+                  variant="tertiary"
+                  size="small"
+                  loading={activatingId === version._id}
+                  onClick={() => handleActivate(version._id)}
+                >
+                  Activate
+                </NSButton>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

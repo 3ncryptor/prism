@@ -1,24 +1,14 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { NSButton, NSPill, NSTypography } from "@newtonschool/grauity";
+import { NSButton, NSTypography } from "@newtonschool/grauity";
 import type { MatchResult } from "@/lib/schemas/matchResult";
 import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
 import { EvidenceList } from "@/app/shared/EvidenceList";
+import { BucketPill } from "@/lib/layout/BucketPill";
+import { EmptyState } from "@/lib/layout/EmptyState";
 
 export type EnrichedMatchResult = MatchResult & { studentName: string; studentEmail: string };
-
-const BUCKET_COLOR = {
-  BEST_FIT: "success",
-  MODERATE_FIT: "warning",
-  LOW_FIT: "error",
-} as const;
-
-const BUCKET_LABEL = {
-  BEST_FIT: "Best Fit",
-  MODERATE_FIT: "Moderate",
-  LOW_FIT: "Low Fit",
-} as const;
 
 interface ResultTableProps {
   results: EnrichedMatchResult[];
@@ -29,11 +19,7 @@ export function ResultTable({ results }: ResultTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (results.length === 0) {
-    return (
-      <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
-        No results yet. Run matching to evaluate candidates.
-      </NSTypography>
-    );
+    return <EmptyState message="No results yet. Run matching to evaluate candidates." />;
   }
 
   return (
@@ -72,9 +58,7 @@ export function ResultTable({ results }: ResultTableProps) {
                     <NSTypography variant="paragraph-md-p3">{result.confidence.toFixed(0)}%</NSTypography>
                   </td>
                   <td className="px-4 py-3">
-                    <NSPill color={BUCKET_COLOR[result.bucket]} isActive>
-                      {BUCKET_LABEL[result.bucket]}
-                    </NSPill>
+                    <BucketPill bucket={result.bucket} />
                   </td>
                   <td className="px-4 py-3">
                     <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>

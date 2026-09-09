@@ -2,20 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { NSButton, NSPill, NSTypography } from "@newtonschool/grauity";
+import { NSPill, NSTypography } from "@newtonschool/grauity";
 import type { Job } from "@/lib/schemas/job";
 import { JobUploadForm } from "@/app/admin/JobUploadForm";
 import { jobStatusColor, jobStatusLabel } from "@/app/admin/jobStatusDisplay";
 import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { PageHeader } from "@/lib/layout/PageHeader";
+import { EmptyState } from "@/lib/layout/EmptyState";
 
 interface AdminDashboardProps {
-  adminName: string;
-  adminEmail: string;
   initialJobs: Job[];
-  onSignOut: () => void;
 }
 
-export function AdminDashboard({ adminName, adminEmail, initialJobs, onSignOut }: AdminDashboardProps) {
+export function AdminDashboard({ initialJobs }: AdminDashboardProps) {
   const [jobs, setJobs] = useState(initialJobs);
 
   async function refreshJobs() {
@@ -26,77 +25,44 @@ export function AdminDashboard({ adminName, adminEmail, initialJobs, onSignOut }
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-12">
-        <header className="flex items-center justify-between gap-4">
-          <div>
-            <NSTypography variant="heading-sb-h2" as="h1">
-              {adminName}
-            </NSTypography>
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-              {adminEmail}
-            </NSTypography>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/admin/skill-taxonomy">
-              <NSButton variant="tertiary" type="button">
-                Skill taxonomy
-              </NSButton>
-            </Link>
-            <Link href="/admin/scoring-configs">
-              <NSButton variant="tertiary" type="button">
-                Scoring config
-              </NSButton>
-            </Link>
-            <form action={onSignOut}>
-              <NSButton variant="tertiary" type="submit">
-                Sign out
-              </NSButton>
-            </form>
-          </div>
-        </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader title="Jobs" />
 
-        <section className="flex flex-col gap-3">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Upload a job description
-          </NSTypography>
-          <JobUploadForm onUploaded={refreshJobs} />
-        </section>
+      <div className="flex flex-col gap-3">
+        <NSTypography variant="heading-sb-h4" as="h2">
+          Upload a job description
+        </NSTypography>
+        <JobUploadForm onUploaded={refreshJobs} />
+      </div>
 
-        <section className="flex flex-col gap-3">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Jobs
-          </NSTypography>
-          {jobs.length === 0 ? (
-            <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
-              No job descriptions uploaded yet.
-            </NSTypography>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {jobs.map((job) => (
-                <Link
-                  key={job._id}
-                  href={`/admin/jobs/${job._id}`}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 transition-colors hover:bg-gray-100"
-                >
-                  <div>
-                    <NSTypography variant="paragraph-sb-p2" as="span">
-                      {job.title}
+      <div className="flex flex-col gap-3">
+        {jobs.length === 0 ? (
+          <EmptyState message="No job descriptions uploaded yet." />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {jobs.map((job) => (
+              <Link
+                key={job._id}
+                href={`/admin/jobs/${job._id}`}
+                className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 transition-colors duration-150 ease-out hover:bg-gray-100"
+              >
+                <div>
+                  <NSTypography variant="paragraph-sb-p2" as="span">
+                    {job.title}
+                  </NSTypography>
+                  {job.company && (
+                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+                      {job.company}
                     </NSTypography>
-                    {job.company && (
-                      <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                        {job.company}
-                      </NSTypography>
-                    )}
-                  </div>
-                  <NSPill color={jobStatusColor(job.status)} isActive>
-                    {jobStatusLabel(job.status)}
-                  </NSPill>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+                  )}
+                </div>
+                <NSPill color={jobStatusColor(job.status)} isActive>
+                  {jobStatusLabel(job.status)}
+                </NSPill>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
   return (
     <div className="flex flex-col gap-6">
       {skillGroups.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
+        <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
           <NSTypography variant="heading-sb-h4" as="h2">
             Skills
           </NSTypography>
@@ -33,11 +33,11 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
               </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
       {profile.projects.length > 0 && (
-        <section className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
+        <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
           <NSTypography variant="heading-sb-h4" as="h2">
             Projects
           </NSTypography>
@@ -60,11 +60,11 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
               )}
             </div>
           ))}
-        </section>
+        </div>
       )}
 
       {profile.experience.length > 0 && (
-        <section className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
+        <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
           <NSTypography variant="heading-sb-h4" as="h2">
             Experience
           </NSTypography>
@@ -78,11 +78,11 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
               </NSTypography>
             </div>
           ))}
-        </section>
+        </div>
       )}
 
       {profile.education.length > 0 && (
-        <section className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
+        <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
           <NSTypography variant="heading-sb-h4" as="h2">
             Education
           </NSTypography>
@@ -97,11 +97,11 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
               </NSTypography>
             </div>
           ))}
-        </section>
+        </div>
       )}
 
       {profile.certifications.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
+        <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
           <NSTypography variant="heading-sb-h4" as="h2">
             Certifications
           </NSTypography>
@@ -112,7 +112,7 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
               </NSChip>
             ))}
           </div>
-        </section>
+        </div>
       )}
     </div>
   );

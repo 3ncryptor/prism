@@ -4,6 +4,9 @@ import { useState } from "react";
 import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { SkillTaxonomyEntry } from "@/lib/schemas/skillTaxonomy";
 import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { PageHeader } from "@/lib/layout/PageHeader";
+import { Card } from "@/lib/layout/Card";
+import { EmptyState } from "@/lib/layout/EmptyState";
 
 type EntryWithUsage = SkillTaxonomyEntry & { usageCount: number };
 
@@ -19,10 +22,7 @@ const CATEGORIES: SkillTaxonomyEntry["category"][] = [
 ];
 
 interface SkillTaxonomyDashboardProps {
-  adminName: string;
-  adminEmail: string;
   initialSkills: EntryWithUsage[];
-  onSignOut: () => void;
 }
 
 interface FormState {
@@ -35,7 +35,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { editingId: null, canonicalName: "", displayName: "", category: "LANGUAGE", aliases: "" };
 
-export function SkillTaxonomyDashboard({ adminName, adminEmail, initialSkills, onSignOut }: SkillTaxonomyDashboardProps) {
+export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboardProps) {
   const [skills, setSkills] = useState(initialSkills);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [isSaving, setIsSaving] = useState(false);
@@ -116,20 +116,10 @@ export function SkillTaxonomyDashboard({ adminName, adminEmail, initialSkills, o
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-12">
-        <header className="flex items-center justify-between gap-4">
-          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-            {adminName} · {adminEmail}
-          </NSTypography>
-          <form action={onSignOut}>
-            <NSButton variant="tertiary" type="submit">Sign out</NSButton>
-          </form>
-        </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader title="Skill Taxonomy" />
 
-        <NSTypography variant="heading-sb-h2" as="h1">Skill Taxonomy</NSTypography>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
+      <Card as="form" onSubmit={handleSubmit} className="flex flex-col gap-3 bg-gray-50">
           <NSTypography variant="heading-sb-h4" as="h2">
             {form.editingId ? "Edit skill" : "Add a skill"}
           </NSTypography>
@@ -184,8 +174,11 @@ export function SkillTaxonomyDashboard({ adminName, adminEmail, initialSkills, o
             )}
           </div>
           {error && <NSAlert variant="error" icon={null} description={error} />}
-        </form>
+      </Card>
 
+      {skills.length === 0 ? (
+        <EmptyState message="No skills in the taxonomy yet." />
+      ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table className="w-full min-w-[720px] border-collapse text-left">
             <thead>
@@ -239,7 +232,7 @@ export function SkillTaxonomyDashboard({ adminName, adminEmail, initialSkills, o
             </tbody>
           </table>
         </div>
-      </div>
+      )}
     </div>
   );
 }

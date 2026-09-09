@@ -47,3 +47,31 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Global micro-interaction (emil-design-eng skill): buttons must feel
+ * responsive to press. Targets native <button> elements, which is what
+ * Grauity's NSButton renders under the hood, without needing to touch its
+ * internals. Transform+opacity only (GPU-accelerated, no layout/paint).
+ */
+button:not(:disabled) {
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active {
+    transform: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

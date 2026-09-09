@@ -42,7 +42,7 @@ export function ResumeStatusCard({ resume, onUploaded }: ResumeStatusCardProps) 
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
+    <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
       <div className="flex items-center justify-between gap-4">
         <NSTypography variant="heading-sb-h4" as="h2">
           Resume
@@ -91,6 +91,6 @@ export function ResumeStatusCard({ resume, onUploaded }: ResumeStatusCardProps) 
           {resume ? "Upload a new resume" : "Upload resume"}
         </NSButton>
       </div>
-    </section>
+    </div>
   );
 }

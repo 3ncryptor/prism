@@ -41,6 +41,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# agent skills (fetched content — skills-lock.json stays committed for reproducibility)
+/.agents/skills
+/.claude/skills
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
