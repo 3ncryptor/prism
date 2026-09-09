@@ -13,6 +13,7 @@ const exec = promisify(execFile);
  */
 export async function startMongoContainer(): Promise<{
   client: MongoClient;
+  uri: string;
   stop: () => Promise<void>;
 }> {
   const { stdout } = await exec("docker", [
@@ -38,6 +39,7 @@ export async function startMongoContainer(): Promise<{
 
   return {
     client,
+    uri,
     stop: async () => {
       await client.close();
       await exec("docker", ["stop", containerId]);
