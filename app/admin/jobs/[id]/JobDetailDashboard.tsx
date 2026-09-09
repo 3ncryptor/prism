@@ -184,6 +184,13 @@ export function JobDetailDashboard({
                 {isCurrentRunPublished ? "Hide Results" : "Publish Results"}
               </NSButton>
             )}
+            {latestRun?.status === "COMPLETED" && (
+              <a href={`/api/admin/jobs/${job._id}/export?runId=${latestRun._id}`}>
+                <NSButton variant="tertiary" type="button">
+                  Export CSV
+                </NSButton>
+              </a>
+            )}
             {job.status !== "READY" && (
               <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
                 This job description is still processing.
