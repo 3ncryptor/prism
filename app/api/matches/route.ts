@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole, UnauthorizedError, ForbiddenError } from "@/lib/auth/guard";
 import { matchResultRepository } from "@/lib/db/repositories/matchResultRepository";
 import { jobRepository } from "@/lib/db/repositories/jobRepository";
-import type { MatchResult } from "@/lib/schemas/matchResult";
+import type { MatchEvidenceDoc, MatchResult } from "@/lib/schemas/matchResult";
 
 interface PublishedApplication {
   jobId: string;
@@ -13,6 +13,7 @@ interface PublishedApplication {
   confidence: number;
   bucket: MatchResult["bucket"];
   missingRequirements: string[];
+  evidence: MatchEvidenceDoc[];
 }
 
 interface UnderReviewApplication {
@@ -61,6 +62,7 @@ export async function GET() {
           confidence: published.confidence,
           bucket: published.bucket,
           missingRequirements: published.missingRequirements,
+          evidence: published.evidence,
         });
       } else {
         applications.push({ jobId, title: job.title, company: job.company, status: "under_review" });

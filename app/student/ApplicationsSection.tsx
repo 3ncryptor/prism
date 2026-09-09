@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NSPill, NSTypography } from "@newtonschool/grauity";
+import { NSButton, NSPill, NSTypography } from "@newtonschool/grauity";
 import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { EvidenceList } from "@/app/shared/EvidenceList";
+import type { MatchEvidenceDoc } from "@/lib/schemas/matchResult";
 
 interface PublishedApplication {
   jobId: string;
@@ -13,6 +15,7 @@ interface PublishedApplication {
   confidence: number;
   bucket: "BEST_FIT" | "MODERATE_FIT" | "LOW_FIT";
   missingRequirements: string[];
+  evidence: MatchEvidenceDoc[];
 }
 
 interface UnderReviewApplication {
@@ -43,6 +46,7 @@ const BUCKET_LABEL = {
  */
 export function ApplicationsSection() {
   const [applications, setApplications] = useState<Application[] | null>(null);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,34 +69,51 @@ export function ApplicationsSection() {
         Applications
       </NSTypography>
       <div className="flex flex-col gap-3">
-        {applications.map((application) => (
-          <div key={application.jobId} className="flex items-center justify-between border-b border-gray-200 pb-3 last:border-0 last:pb-0">
-            <div>
-              <NSTypography variant="paragraph-sb-p2" as="h3">
-                {application.title}
-              </NSTypography>
-              {application.company && (
-                <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                  {application.company}
-                </NSTypography>
+        {applications.map((application) => {
+          const isExpanded = expandedJobId === application.jobId;
+          return (
+            <div key={application.jobId} className="border-b border-gray-200 pb-3 last:border-0 last:pb-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <NSTypography variant="paragraph-sb-p2" as="h3">
+                    {application.title}
+                  </NSTypography>
+                  {application.company && (
+                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+                      {application.company}
+                    </NSTypography>
+                  )}
+                </div>
+                {application.status === "published" ? (
+                  <div className="flex items-center gap-3">
+                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+                      Score: {application.score.toFixed(1)}
+                    </NSTypography>
+                    <NSPill color={BUCKET_COLOR[application.bucket]} isActive>
+                      {BUCKET_LABEL[application.bucket]}
+                    </NSPill>
+                    <NSButton
+                      variant="tertiary"
+                      size="small"
+                      onClick={() => setExpandedJobId(isExpanded ? null : application.jobId)}
+                    >
+                      {isExpanded ? "Hide evidence" : "View evidence"}
+                    </NSButton>
+                  </div>
+                ) : (
+                  <NSPill color="brand" isActive>
+                    Under review
+                  </NSPill>
+                )}
+              </div>
+              {application.status === "published" && isExpanded && (
+                <div className="mt-3">
+                  <EvidenceList evidence={application.evidence} />
+                </div>
               )}
             </div>
-            {application.status === "published" ? (
-              <div className="flex items-center gap-3">
-                <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                  Score: {application.score.toFixed(1)}
-                </NSTypography>
-                <NSPill color={BUCKET_COLOR[application.bucket]} isActive>
-                  {BUCKET_LABEL[application.bucket]}
-                </NSPill>
-              </div>
-            ) : (
-              <NSPill color="brand" isActive>
-                Under review
-              </NSPill>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
