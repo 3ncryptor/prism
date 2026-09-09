@@ -31,6 +31,7 @@ import {
 } from "@/lib/services/embeddingService";
 import type { ExtractionProvider } from "@/lib/extraction/extractionProvider";
 import { logger } from "@/lib/logger";
+import { withTiming } from "@/lib/observability/timing";
 import type { DocumentProcessingJobPayload } from "@/lib/queue/jobTypes";
 
 const RESUME_PROMPT_VERSION = "resume-extraction-v1";
@@ -98,7 +99,9 @@ export async function processResumeJob(
   if (!resume) {
     throw new Error(`Resume not found: ${resumeId}`);
   }
+  const log = logger.child({ jobId: resumeId, studentId: resume.studentId, jobType: "RESUME_PROCESS" });
 
+  await withTiming(log, "resume.process", async () => {
   try {
     await deps.resumes.updateStatus(resumeId, "EXTRACTING");
 
@@ -157,6 +160,7 @@ export async function processResumeJob(
     });
     throw error; // rethrow so BullMQ retries, per buildPlan.md §57
   }
+  });
 }
 
 /**
@@ -172,7 +176,9 @@ export async function processJobJob(
   if (!job) {
     throw new Error(`Job not found: ${jobId}`);
   }
+  const log = logger.child({ jobId, jobType: "JD_PROCESS" });
 
+  await withTiming(log, "jd.process", async () => {
   try {
     await deps.jobs.updateStatus(jobId, "EXTRACTING");
 
@@ -223,10 +229,11 @@ export async function processJobJob(
     });
     throw error; // rethrow so BullMQ retries, per buildPlan.md §57
   }
+  });
 }
 
 export function startDocumentWorker(): Worker<DocumentProcessingJobPayload> {
-  return new Worker<DocumentProcessingJobPayload>(
+  const worker = new Worker<DocumentProcessingJobPayload>(
     "document-processing",
     async (job: Job<DocumentProcessingJobPayload>) => {
       if (job.data.type === "RESUME_PROCESS") {
@@ -237,6 +244,17 @@ export function startDocumentWorker(): Worker<DocumentProcessingJobPayload> {
     },
     { connection: getRedisConnection(), concurrency: 3 },
   );
+
+  // buildPlan.md §79: terminal (post-retry) worker failures, distinct from
+  // the per-document FAILED status already persisted inside each job fn.
+  worker.on("failed", (job, error) => {
+    logger.error(
+      { queueJobId: job?.id, jobType: job?.data?.type, attemptsMade: job?.attemptsMade, err: error },
+      "Document processing job failed",
+    );
+  });
+
+  return worker;
 }
 
 if (require.main === module) {

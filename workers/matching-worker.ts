@@ -27,6 +27,7 @@ import { retrieveEvidenceForStudent as defaultRetrieveEvidenceForStudent } from 
 import { evaluateMatch as defaultEvaluateMatch } from "@/lib/matching/matchingEngine";
 import type { MatchingJobPayload } from "@/lib/queue/jobTypes";
 import { logger } from "@/lib/logger";
+import { withTiming } from "@/lib/observability/timing";
 
 type ProcessMatchRunDeps = {
   matchRuns: Pick<MatchRunRepository, "get" | "updateStatus" | "setCandidateCount" | "incrementProcessed" | "complete">;
@@ -67,7 +68,9 @@ export async function processMatchRun(
   if (!run) {
     throw new Error(`Match run not found: ${matchRunId}`);
   }
+  const log = logger.child({ jobId: matchRunId, jobType: "MATCH_RUN" });
 
+  await withTiming(log, "matchRun.process", async () => {
   try {
     const job = await deps.jobs.get(run.jobId);
     if (!job) throw new Error(`Job not found: ${run.jobId}`);
@@ -118,16 +121,28 @@ export async function processMatchRun(
     });
     throw error; // rethrow so BullMQ retries, per buildPlan.md §57
   }
+  });
 }
 
 export function startMatchingWorker(): Worker<MatchingJobPayload> {
-  return new Worker<MatchingJobPayload>(
+  const worker = new Worker<MatchingJobPayload>(
     "matching",
     async (job: Job<MatchingJobPayload>) => {
       await processMatchRun(job.data.matchRunId);
     },
     { connection: getRedisConnection(), concurrency: 2 },
   );
+
+  // buildPlan.md §79: terminal (post-retry) worker failures, distinct from
+  // the per-run FAILED status already persisted inside processMatchRun.
+  worker.on("failed", (job, error) => {
+    logger.error(
+      { queueJobId: job?.id, matchRunId: job?.data?.matchRunId, attemptsMade: job?.attemptsMade, err: error },
+      "Matching job failed",
+    );
+  });
+
+  return worker;
 }
 
 if (require.main === module) {

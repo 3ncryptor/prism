@@ -3,6 +3,8 @@ import { getGeminiApiKey } from "@/lib/config/env";
 import { buildResumeExtractionPrompt } from "@/lib/extraction/prompts/resume-extraction-v1";
 import { buildJDExtractionPrompt } from "@/lib/extraction/prompts/jd-extraction-v1";
 import type { ExtractionProvider } from "@/lib/extraction/extractionProvider";
+import { logger } from "@/lib/logger";
+import { withTiming } from "@/lib/observability/timing";
 
 // gemini-2.0-flash was retired; Google's own API error pointed at this
 // replacement directly (verified live against the real API, not from
@@ -51,6 +53,7 @@ export async function generateContentWithRetry(
       if (attempt === MAX_ATTEMPTS || !isRetryableGeminiError(error)) {
         throw error;
       }
+      logger.warn({ attempt, maxAttempts: MAX_ATTEMPTS, err: error }, "Gemini request failed, retrying");
       await sleep(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1));
     }
   }
@@ -64,9 +67,11 @@ async function generateJson(modelId: string, prompt: string): Promise<unknown> {
     generationConfig: { responseMimeType: "application/json" },
   });
 
-  const result = await generateContentWithRetry(
-    (p) => model.generateContent(p),
-    prompt,
+  const result = await withTiming(
+    logger,
+    "gemini.generateContent",
+    () => generateContentWithRetry((p) => model.generateContent(p), prompt),
+    { extra: { model: modelId } },
   );
   const responseText = result.response.text();
 

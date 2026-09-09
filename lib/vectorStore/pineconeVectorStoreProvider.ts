@@ -4,6 +4,8 @@ import type {
   VectorSearchMatch,
   VectorStoreProvider,
 } from "@/lib/vectorStore/vectorStoreProvider";
+import { logger } from "@/lib/logger";
+import { withTiming } from "@/lib/observability/timing";
 
 function getIndexName(): string {
   const value = process.env.PINECONE_INDEX;
@@ -34,14 +36,21 @@ export class PineconeVectorStoreProvider implements VectorStoreProvider {
 
   async upsert(namespace: string, points: VectorPoint[]): Promise<void> {
     if (points.length === 0) return;
-    const index = this.getClient().index(getIndexName()).namespace(namespace);
-    await index.upsert({
-      records: points.map((point) => ({
-        id: point.id,
-        values: point.vector,
-        metadata: point.metadata,
-      })),
-    });
+    await withTiming(
+      logger,
+      "vectorstore.upsert",
+      async () => {
+        const index = this.getClient().index(getIndexName()).namespace(namespace);
+        await index.upsert({
+          records: points.map((point) => ({
+            id: point.id,
+            values: point.vector,
+            metadata: point.metadata,
+          })),
+        });
+      },
+      { level: "debug", extra: { namespace, count: points.length } },
+    );
   }
 
   async search(
@@ -50,18 +59,25 @@ export class PineconeVectorStoreProvider implements VectorStoreProvider {
     filter: Record<string, string>,
     topK: number,
   ): Promise<VectorSearchMatch[]> {
-    const index = this.getClient().index(getIndexName()).namespace(namespace);
-    const response = await index.query({
-      vector,
-      topK,
-      includeMetadata: true,
-      filter: Object.keys(filter).length > 0 ? filter : undefined,
-    });
-    return response.matches.map((match) => ({
-      id: match.id,
-      score: match.score ?? 0,
-      metadata: (match.metadata ?? {}) as VectorSearchMatch["metadata"],
-    }));
+    return withTiming(
+      logger,
+      "vectorstore.search",
+      async () => {
+        const index = this.getClient().index(getIndexName()).namespace(namespace);
+        const response = await index.query({
+          vector,
+          topK,
+          includeMetadata: true,
+          filter: Object.keys(filter).length > 0 ? filter : undefined,
+        });
+        return response.matches.map((match) => ({
+          id: match.id,
+          score: match.score ?? 0,
+          metadata: (match.metadata ?? {}) as VectorSearchMatch["metadata"],
+        }));
+      },
+      { level: "debug", extra: { namespace, topK } },
+    );
   }
 
   async delete(namespace: string, ids: string[]): Promise<void> {

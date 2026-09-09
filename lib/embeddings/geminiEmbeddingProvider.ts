@@ -1,5 +1,7 @@
 import { getGeminiApiKey } from "@/lib/config/env";
 import type { EmbeddingProvider } from "@/lib/embeddings/embeddingProvider";
+import { logger } from "@/lib/logger";
+import { withTiming } from "@/lib/observability/timing";
 
 // gemini-embedding-001 verified live (2026-09-09): native output is 3072
 // dims, but the real Pinecone index (prism-index) was created with
@@ -23,27 +25,34 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
   async embed(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
 
-    const response = await fetch(
-      `${API_BASE}/models/${MODEL_ID}:batchEmbedContents?key=${getGeminiApiKey()}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requests: texts.map((text) => ({
-            model: `models/${MODEL_ID}`,
-            content: { parts: [{ text }] },
-            outputDimensionality: OUTPUT_DIMENSIONS,
-          })),
-        }),
+    return withTiming(
+      logger,
+      "embedding.batchEmbedContents",
+      async () => {
+        const response = await fetch(
+          `${API_BASE}/models/${MODEL_ID}:batchEmbedContents?key=${getGeminiApiKey()}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requests: texts.map((text) => ({
+                model: `models/${MODEL_ID}`,
+                content: { parts: [{ text }] },
+                outputDimensionality: OUTPUT_DIMENSIONS,
+              })),
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          const body = await response.text();
+          throw new Error(`Gemini embedding request failed (${response.status}): ${body}`);
+        }
+
+        const data = (await response.json()) as BatchEmbedResponse;
+        return data.embeddings.map((e) => e.values);
       },
+      { extra: { textCount: texts.length } },
     );
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Gemini embedding request failed (${response.status}): ${body}`);
-    }
-
-    const data = (await response.json()) as BatchEmbedResponse;
-    return data.embeddings.map((e) => e.values);
   }
 }
