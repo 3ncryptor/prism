@@ -2,4 +2,5 @@
 export interface ExtractionProvider {
   readonly modelId: string;
   extractResume(text: string, promptVersion: string): Promise<unknown>;
+  extractJD(text: string, promptVersion: string): Promise<unknown>;
 }

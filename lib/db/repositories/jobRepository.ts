@@ -1,6 +1,6 @@
 import { Collection, ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/client";
-import type { Job } from "@/lib/schemas/job";
+import type { Job, JobStatus } from "@/lib/schemas/job";
 
 export type JobDocument = Omit<Job, "_id"> & { _id: ObjectId };
 
@@ -33,6 +33,26 @@ export class JobRepository {
     };
     await collection.insertOne(doc);
     return toJob(doc);
+  }
+
+  async setFileKey(jobId: string, fileKey: string): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateOne(
+      { _id: new ObjectId(jobId) },
+      { $set: { fileKey, updatedAt: new Date() } },
+    );
+  }
+
+  async updateStatus(
+    jobId: string,
+    status: JobStatus,
+    error?: { code: string; message: string },
+  ): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateOne(
+      { _id: new ObjectId(jobId) },
+      { $set: { status, error, updatedAt: new Date() } },
+    );
   }
 
   async get(jobId: string): Promise<Job | null> {

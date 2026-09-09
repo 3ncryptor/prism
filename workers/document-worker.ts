@@ -13,11 +13,20 @@ import {
   studentProfileRepository,
   type StudentProfileRepository,
 } from "@/lib/db/repositories/studentProfileRepository";
+import { jobRepository, type JobRepository } from "@/lib/db/repositories/jobRepository";
+import {
+  jobProfileRepository,
+  type JobProfileRepository,
+} from "@/lib/db/repositories/jobProfileRepository";
+import {
+  normalizeJobProfile as defaultNormalizeJobProfile,
+} from "@/lib/extraction/normalizeJobProfile";
 import type { ExtractionProvider } from "@/lib/extraction/extractionProvider";
 import { logger } from "@/lib/logger";
 import type { DocumentProcessingJobPayload } from "@/lib/queue/jobTypes";
 
 const RESUME_PROMPT_VERSION = "resume-extraction-v1";
+const JD_PROMPT_VERSION = "jd-extraction-v1";
 
 type ProcessResumeDeps = {
   resumes: Pick<ResumeRepository, "get" | "updateStatus">;
@@ -39,6 +48,28 @@ const defaultDeps: ProcessResumeDeps = {
   checkTextQuality: defaultCheckTextQuality,
   extractionProvider: new GeminiExtractionProvider(),
   normalizeProfile: defaultNormalizeProfile,
+};
+
+type ProcessJobDeps = {
+  jobs: Pick<JobRepository, "get" | "updateStatus">;
+  jobProfiles: Pick<JobProfileRepository, "save">;
+  downloadFile: typeof s3DownloadFile;
+  extractPdfText: typeof defaultExtractPdfText;
+  extractDocxText: typeof defaultExtractDocxText;
+  checkTextQuality: typeof defaultCheckTextQuality;
+  extractionProvider: ExtractionProvider;
+  normalizeJobProfile: typeof defaultNormalizeJobProfile;
+};
+
+const defaultJobDeps: ProcessJobDeps = {
+  jobs: jobRepository,
+  jobProfiles: jobProfileRepository,
+  downloadFile: s3DownloadFile,
+  extractPdfText: defaultExtractPdfText,
+  extractDocxText: defaultExtractDocxText,
+  checkTextQuality: defaultCheckTextQuality,
+  extractionProvider: new GeminiExtractionProvider(),
+  normalizeJobProfile: defaultNormalizeJobProfile,
 };
 
 /**
@@ -109,14 +140,77 @@ export async function processResumeJob(
   }
 }
 
+/**
+ * buildPlan.md §21/§113: UPLOADED->EXTRACTING->EXTRACTED->STRUCTURING->
+ * VALIDATING->READY. Mirrors processResumeJob but has no evidence-
+ * verification step — see normalizeJobProfile.ts for why.
+ */
+export async function processJobJob(
+  jobId: string,
+  deps: ProcessJobDeps = defaultJobDeps,
+): Promise<void> {
+  const job = await deps.jobs.get(jobId);
+  if (!job) {
+    throw new Error(`Job not found: ${jobId}`);
+  }
+
+  try {
+    await deps.jobs.updateStatus(jobId, "EXTRACTING");
+
+    const buffer = await deps.downloadFile(job.fileKey);
+    const text = job.fileKey.endsWith(".docx")
+      ? await deps.extractDocxText(buffer)
+      : await deps.extractPdfText(buffer);
+
+    const quality = deps.checkTextQuality(text);
+    if (quality.insufficient) {
+      await deps.jobs.updateStatus(jobId, "FAILED", {
+        code: "NEEDS_OCR",
+        message: quality.reason ?? "Extracted text quality insufficient",
+      });
+      return;
+    }
+
+    await deps.jobs.updateStatus(jobId, "EXTRACTED");
+
+    await deps.jobs.updateStatus(jobId, "STRUCTURING");
+    const raw = await deps.extractionProvider.extractJD(text, JD_PROMPT_VERSION);
+
+    await deps.jobs.updateStatus(jobId, "VALIDATING");
+    let profile;
+    try {
+      profile = deps.normalizeJobProfile(raw, { jobId });
+    } catch (error) {
+      if (error instanceof InvalidExtractionError) {
+        await deps.jobs.updateStatus(jobId, "FAILED", {
+          code: "INVALID_EXTRACTION",
+          message: error.message,
+        });
+        return;
+      }
+      throw error;
+    }
+
+    await deps.jobProfiles.save(profile);
+    await deps.jobs.updateStatus(jobId, "READY");
+  } catch (error) {
+    await deps.jobs.updateStatus(jobId, "FAILED", {
+      code: "EXTRACTION_ERROR",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error; // rethrow so BullMQ retries, per buildPlan.md §57
+  }
+}
+
 export function startDocumentWorker(): Worker<DocumentProcessingJobPayload> {
   return new Worker<DocumentProcessingJobPayload>(
     "document-processing",
     async (job: Job<DocumentProcessingJobPayload>) => {
       if (job.data.type === "RESUME_PROCESS") {
         await processResumeJob(job.data.resumeId);
+      } else if (job.data.type === "JD_PROCESS") {
+        await processJobJob(job.data.jobId);
       }
-      // JD_PROCESS is handled starting with the JD pipeline (feature #12+).
     },
     { connection: getRedisConnection(), concurrency: 3 },
   );
