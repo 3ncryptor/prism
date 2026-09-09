@@ -292,6 +292,15 @@ PASS. No agent, including Backend or Frontend under time pressure, may skip this
    `Add unit tests for scoring engine`. Optionally prefix with a conventional
    type (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`) if the repo already uses
    that convention, but never include a task ID like `(TASK-001)`.
+   **Commit cadence (user override, 2026-09-11 — supersedes the 2026-09-09
+   note above):** commit and push after every feature that reaches QA
+   `PASS` and is in a genuinely working state (build/lint/tests green) —
+   back to per-feature commits, not milestone-batching. Commit messages
+   should name the feature (`Feature #n: <name>`) and summarize what it
+   adds, per §9 below. Always push to `main` on the remote configured in
+   `git remote -v` (never assume a different URL, never push to a branch
+   other than `main`) — see `docs/BACKEND_ARCHITECTURE.md`'s repo notes if
+   the remote ever needs to change again.
 9. **One feature at a time, then stop for review.** Work moves through the
    pipeline one feature at a time (see "Feature-wise, not phase-wise" above), not
    phase-by-phase and not the whole build in one pass. Do not start the next

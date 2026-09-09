@@ -1,0 +1,56 @@
+import { Collection, ObjectId } from "mongodb";
+import { getDb } from "@/lib/db/client";
+import type { StudentProfile } from "@/lib/schemas/studentProfile";
+
+export type StudentProfileDocument = Omit<StudentProfile, "_id"> & { _id: ObjectId };
+
+function toStudentProfile(doc: StudentProfileDocument): StudentProfile {
+  return { ...doc, _id: doc._id.toString() };
+}
+
+export class StudentProfileRepository {
+  constructor(
+    private readonly getCollection: () => Promise<Collection<StudentProfileDocument>>,
+  ) {}
+
+  /**
+   * Marks any previously-active profile for this student inactive, then
+   * inserts `profile` as the new active one (buildPlan.md §55) — a resume
+   * replacement must not leave two profiles simultaneously active.
+   */
+  async save(
+    profile: Omit<StudentProfile, "_id">,
+    opts: { markActive: boolean },
+  ): Promise<StudentProfile> {
+    const collection = await this.getCollection();
+    if (opts.markActive) {
+      await collection.updateMany(
+        { studentId: profile.studentId, isActive: true },
+        { $set: { isActive: false } },
+      );
+    }
+    const doc: StudentProfileDocument = { _id: new ObjectId(), ...profile };
+    await collection.insertOne(doc);
+    return toStudentProfile(doc);
+  }
+
+  async getActiveByStudent(studentId: string): Promise<StudentProfile | null> {
+    const collection = await this.getCollection();
+    const doc = await collection.findOne({ studentId, isActive: true });
+    return doc ? toStudentProfile(doc) : null;
+  }
+
+  /** V1: full population, no candidate pre-filter (buildPlan.md §23). */
+  async listAllActive(): Promise<StudentProfile[]> {
+    const collection = await this.getCollection();
+    const docs = await collection.find({ isActive: true }).toArray();
+    return docs.map(toStudentProfile);
+  }
+}
+
+async function defaultCollection(): Promise<Collection<StudentProfileDocument>> {
+  const db = await getDb();
+  return db.collection<StudentProfileDocument>("studentProfiles");
+}
+
+export const studentProfileRepository = new StudentProfileRepository(defaultCollection);

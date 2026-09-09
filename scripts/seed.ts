@@ -1,22 +1,35 @@
 /**
  * Prism - Database Seed Script
- * 
- * This script is responsible for populating the database with realistic fake data
- * for development and testing of the matching engine.
- * 
+ *
+ * Populates the database with fake dev accounts (and, in later features,
+ * students/JDs/taxonomy/scoring config — see buildPlan.md §94). Idempotent:
+ * safe to run repeatedly.
+ *
  * Run with: npm run seed
  */
+import { getDb } from "@/lib/db/client";
+import { ensureIndexes } from "@/lib/db/indexes";
+import { userRepository } from "@/lib/db/repositories/userRepository";
+import { seedUsers, DEV_PASSWORD } from "@/lib/db/seed/seedUsers";
+import { logger } from "@/lib/logger";
 
 async function main() {
-  console.log("🌱 Starting seed process...");
-  
-  // TODO: Add database connection logic
-  // TODO: Add seed logic for students, resumes, JDs, etc.
-  
-  console.log("✅ Seed completed successfully!");
+  logger.info("Starting seed process...");
+
+  await ensureIndexes(await getDb());
+  logger.info("Indexes ensured.");
+
+  const users = await seedUsers(userRepository);
+  logger.info(
+    { count: users.length, emails: users.map((u) => u.email), devPassword: DEV_PASSWORD },
+    "Seeded users (dev password logged above — dev-only, never used in prod)",
+  );
+
+  logger.info("Seed completed successfully.");
+  process.exit(0);
 }
 
 main().catch((err) => {
-  console.error("❌ Seeding failed:", err);
+  logger.error({ err }, "Seeding failed");
   process.exit(1);
 });

@@ -3357,7 +3357,7 @@ Do not depend on serverless request lifetime for long-running document processin
 
 # 93. Development Environment
 
-Do **not** use Docker/Docker Compose for local dependencies. Run local dependencies as native installs or managed cloud dev instances:
+Do **not** use Docker/Docker Compose for the app's own local runtime dependencies (the Next.js app and workers should not assume a container is providing their services). Run local dependencies as native installs or managed cloud dev instances:
 
 ```text
 MongoDB      → local mongod install, or a free-tier Atlas dev cluster
@@ -3367,7 +3367,15 @@ Qdrant       → local Qdrant binary/install, or a free-tier Qdrant Cloud instan
 
 Connection details for whichever option is chosen go in `.env`/`.env.example` (`MONGODB_URI`, `REDIS_URL`, `QDRANT_URL`), so the app code never assumes a specific runtime (containerized or not) is providing them.
 
-This gives the coding agent a reproducible local environment without introducing a container runtime as a project dependency.
+**Exception — test infrastructure (finalized, 2026-09-11):** integration
+tests **may** use Docker via `testcontainers` to run a real, ephemeral
+MongoDB image (started/stopped by the test run itself, ambient-daemon
+required but not a runtime dependency of the deployed app). This replaced
+an earlier attempt at `mongodb-memory-server`, which hit a driver/server
+handshake incompatibility in this project's dev environment. A real MongoDB
+image gives higher-confidence repository tests than a hand-rolled fake
+collection, without making Docker a requirement for running the app itself
+in dev or prod.
 
 ---
 
@@ -3396,6 +3404,18 @@ Do not use real student PII for development.
 As new data shapes are introduced by later features (e.g. matching runs, results,
 confidence fields), extend `scripts/seed.ts` to cover them rather than leaving new
 collections/fields un-seeded.
+
+**Seeded dev accounts (feature #2, `lib/db/seed/seedUsers.ts`):** `npm run
+seed` creates one ADMIN and three STUDENT accounts, all sharing one dev-only
+password. These are fake, low-value, non-production credentials — safe to
+commit to the repo.
+
+```text
+admin@prism.dev        / prism-dev-password   (ADMIN)
+student1@prism.dev     / prism-dev-password   (STUDENT)
+student2@prism.dev     / prism-dev-password   (STUDENT)
+student3@prism.dev     / prism-dev-password   (STUDENT)
+```
 
 ---
 
