@@ -1,3 +1,4 @@
+import "@/lib/config/loadEnv";
 import { Worker, type Job } from "bullmq";
 import { getRedisConnection, closeRedisConnection } from "@/lib/queue/connection";
 import { closeMongoConnection } from "@/lib/db/client";

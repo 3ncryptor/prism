@@ -7,6 +7,7 @@
  *
  * Run with: npm run seed
  */
+import "@/lib/config/loadEnv";
 import { getDb } from "@/lib/db/client";
 import { ensureIndexes } from "@/lib/db/indexes";
 import { userRepository } from "@/lib/db/repositories/userRepository";
