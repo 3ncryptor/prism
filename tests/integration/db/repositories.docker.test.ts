@@ -60,6 +60,34 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
 
     expect((await repo.getActiveByStudent("student-1"))?._id).toBe(resume._id);
     expect(await repo.listByStudent("student-1")).toHaveLength(1);
+
+    await repo.setFileKey(resume._id, "resumes/student-1/resume-1/original.pdf");
+    expect((await repo.get(resume._id))?.fileKey).toBe(
+      "resumes/student-1/resume-1/original.pdf",
+    );
+  });
+
+  it("ResumeRepository: deactivateAllForStudent (buildPlan.md §54 versioning)", async () => {
+    const repo = new ResumeRepository(async () =>
+      db.collection<ResumeDocument>("resumes"),
+    );
+
+    const first = await repo.create({
+      studentId: "student-versioning",
+      fileKey: "k1",
+      originalName: "v1.pdf",
+    });
+    await repo.deactivateAllForStudent("student-versioning");
+    const second = await repo.create({
+      studentId: "student-versioning",
+      fileKey: "k2",
+      originalName: "v2.pdf",
+    });
+
+    expect((await repo.get(first._id))?.isActive).toBe(false);
+    expect((await repo.get(second._id))?.isActive).toBe(true);
+    expect(await repo.listByStudent("student-versioning")).toHaveLength(2);
+    expect((await repo.getActiveByStudent("student-versioning"))?._id).toBe(second._id);
   });
 
   it("StudentProfileRepository: save deactivates the prior active profile", async () => {

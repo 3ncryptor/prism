@@ -23,6 +23,15 @@ export class ResumeRepository {
     private readonly getCollection: () => Promise<Collection<ResumeDocument>>,
   ) {}
 
+  /** buildPlan.md §54: a new resume becomes active; prior ones are not deleted. */
+  async deactivateAllForStudent(studentId: string): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateMany(
+      { studentId, isActive: true },
+      { $set: { isActive: false, updatedAt: new Date() } },
+    );
+  }
+
   async create(input: {
     studentId: string;
     fileKey: string;
@@ -40,6 +49,14 @@ export class ResumeRepository {
     };
     await collection.insertOne(doc);
     return toResume(doc);
+  }
+
+  async setFileKey(resumeId: string, fileKey: string): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateOne(
+      { _id: new ObjectId(resumeId) },
+      { $set: { fileKey, updatedAt: new Date() } },
+    );
   }
 
   async updateStatus(

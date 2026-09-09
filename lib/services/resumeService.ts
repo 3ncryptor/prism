@@ -1,0 +1,92 @@
+import { resumeRepository, type ResumeRepository } from "@/lib/db/repositories/resumeRepository";
+import {
+  processingJobRepository,
+  type ProcessingJobRepository,
+} from "@/lib/db/repositories/processingJobRepository";
+import { uploadFile as s3UploadFile, buildResumeKey } from "@/lib/storage/s3Client";
+import type { Resume } from "@/lib/schemas/resume";
+
+export const MAX_RESUME_SIZE_BYTES = 10 * 1024 * 1024; // buildPlan.md §82
+
+const ALLOWED_MIME_TYPES: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+};
+
+export class InvalidFileTypeError extends Error {
+  constructor() {
+    super("Only PDF and DOCX resumes are accepted.");
+    this.name = "InvalidFileTypeError";
+  }
+}
+
+export class FileTooLargeError extends Error {
+  constructor() {
+    super(`Resume must be smaller than ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB.`);
+    this.name = "FileTooLargeError";
+  }
+}
+
+export interface UploadResumeInput {
+  buffer: Buffer;
+  originalName: string;
+  mimeType: string;
+  size: number;
+}
+
+type Deps = {
+  resumes: Pick<
+    ResumeRepository,
+    "create" | "deactivateAllForStudent" | "setFileKey" | "getActiveByStudent" | "listByStudent"
+  >;
+  processingJobs: Pick<ProcessingJobRepository, "create">;
+  uploadFile: typeof s3UploadFile;
+};
+
+const defaultDeps: Deps = {
+  resumes: resumeRepository,
+  processingJobs: processingJobRepository,
+  uploadFile: s3UploadFile,
+};
+
+/**
+ * buildPlan.md §16: must return before extraction runs — this function
+ * does not enqueue or wait for any processing (queue is feature #6,
+ * worker is feature #7).
+ */
+export async function uploadResume(
+  studentId: string,
+  file: UploadResumeInput,
+  deps: Deps = defaultDeps,
+): Promise<{ resumeId: string; status: Resume["status"] }> {
+  const extension = ALLOWED_MIME_TYPES[file.mimeType];
+  if (!extension) {
+    throw new InvalidFileTypeError();
+  }
+  if (file.size > MAX_RESUME_SIZE_BYTES) {
+    throw new FileTooLargeError();
+  }
+
+  await deps.resumes.deactivateAllForStudent(studentId);
+  const resume = await deps.resumes.create({
+    studentId,
+    fileKey: "", // finalized below, once the resumeId is known (§5.1 key convention)
+    originalName: file.originalName,
+  });
+
+  const fileKey = buildResumeKey(studentId, resume._id, extension);
+  await deps.uploadFile(fileKey, file.buffer, file.mimeType);
+  await deps.resumes.setFileKey(resume._id, fileKey);
+
+  await deps.processingJobs.create({ type: "RESUME_PROCESS", targetId: resume._id });
+
+  return { resumeId: resume._id, status: "QUEUED" };
+}
+
+export async function getActiveResume(studentId: string): Promise<Resume | null> {
+  return resumeRepository.getActiveByStudent(studentId);
+}
+
+export async function listResumes(studentId: string): Promise<Resume[]> {
+  return resumeRepository.listByStudent(studentId);
+}
