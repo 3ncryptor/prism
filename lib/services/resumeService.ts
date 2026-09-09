@@ -4,6 +4,7 @@ import {
   type ProcessingJobRepository,
 } from "@/lib/db/repositories/processingJobRepository";
 import { uploadFile as s3UploadFile, buildResumeKey } from "@/lib/storage/s3Client";
+import { enqueueDocumentProcessing as defaultEnqueueDocumentProcessing } from "@/lib/services/queueService";
 import type { Resume } from "@/lib/schemas/resume";
 
 export const MAX_RESUME_SIZE_BYTES = 10 * 1024 * 1024; // buildPlan.md §82
@@ -41,18 +42,21 @@ type Deps = {
   >;
   processingJobs: Pick<ProcessingJobRepository, "create">;
   uploadFile: typeof s3UploadFile;
+  enqueueDocumentProcessing: typeof defaultEnqueueDocumentProcessing;
 };
 
 const defaultDeps: Deps = {
   resumes: resumeRepository,
   processingJobs: processingJobRepository,
   uploadFile: s3UploadFile,
+  enqueueDocumentProcessing: defaultEnqueueDocumentProcessing,
 };
 
 /**
- * buildPlan.md §16: must return before extraction runs — this function
- * does not enqueue or wait for any processing (queue is feature #6,
- * worker is feature #7).
+ * buildPlan.md §16: must return before extraction *completes* — enqueueing
+ * is fire-and-forget from the caller's perspective; nothing here awaits
+ * the worker (feature #7, which doesn't exist yet, so this job sits
+ * QUEUED with no consumer until then).
  */
 export async function uploadResume(
   studentId: string,
@@ -79,6 +83,7 @@ export async function uploadResume(
   await deps.resumes.setFileKey(resume._id, fileKey);
 
   await deps.processingJobs.create({ type: "RESUME_PROCESS", targetId: resume._id });
+  await deps.enqueueDocumentProcessing({ type: "RESUME_PROCESS", resumeId: resume._id });
 
   return { resumeId: resume._id, status: "QUEUED" };
 }

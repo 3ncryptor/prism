@@ -34,6 +34,7 @@ function makeDeps() {
       create: jest.fn().mockResolvedValue({}),
     },
     uploadFile: jest.fn().mockResolvedValue(undefined),
+    enqueueDocumentProcessing: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -88,6 +89,10 @@ describe("uploadResume", () => {
     expect(deps.processingJobs.create).toHaveBeenCalledWith({
       type: "RESUME_PROCESS",
       targetId: "resume-1",
+    });
+    expect(deps.enqueueDocumentProcessing).toHaveBeenCalledWith({
+      type: "RESUME_PROCESS",
+      resumeId: "resume-1",
     });
     expect(result).toEqual({ resumeId: "resume-1", status: "QUEUED" });
   });
