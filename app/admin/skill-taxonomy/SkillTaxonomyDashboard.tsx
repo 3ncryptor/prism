@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { SkillTaxonomyEntry } from "@/lib/schemas/skillTaxonomy";
-import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR, BRAND_TINT_COLOR, MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
-import { EmptyState } from "@/lib/layout/EmptyState";
 
 type EntryWithUsage = SkillTaxonomyEntry & { usageCount: number };
 
@@ -35,6 +34,13 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { editingId: null, canonicalName: "", displayName: "", category: "LANGUAGE", aliases: "" };
 
+/**
+ * docs/screens.md §6.4 (feature 27a2): retrofitted from a top-form-then-
+ * flat-table layout to a two-pane master-detail — a scrollable skills list
+ * on the left, the create/edit form for whichever skill is selected (or a
+ * blank "Add skill" form) on the right. Same create/edit/deactivate/
+ * usage-count logic as before; layout only.
+ */
 export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboardProps) {
   const [skills, setSkills] = useState(initialSkills);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -49,6 +55,7 @@ export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboard
   }
 
   function startEdit(entry: EntryWithUsage) {
+    setError(null);
     setForm({
       editingId: entry._id,
       canonicalName: entry.canonicalName,
@@ -109,17 +116,57 @@ export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboard
         const body = await response.json();
         throw new Error(body.error ?? "Failed to deactivate skill.");
       }
+      if (form.editingId === id) setForm(EMPTY_FORM);
       await refreshSkills();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deactivate skill.");
     }
   }
 
+  const selectedEntry = skills.find((s) => s._id === form.editingId) ?? null;
+
   return (
     <div className="flex w-full flex-col gap-6">
       <PageHeader title="Skill Taxonomy" />
 
-      <Card as="form" onSubmit={handleSubmit} className="flex flex-col gap-3 bg-gray-50">
+      <div className="flex gap-6">
+        <Card className="flex w-64 shrink-0 flex-col gap-1 p-3">
+          <div className="max-h-[28rem] overflow-y-auto">
+            {skills.length === 0 ? (
+              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+                No skills yet.
+              </NSTypography>
+            ) : (
+              skills.map((entry) => {
+                const isSelected = entry._id === form.editingId;
+                return (
+                  <button
+                    key={entry._id}
+                    type="button"
+                    onClick={() => startEdit(entry)}
+                    className="w-full rounded-md px-3 py-2 text-left transition-colors duration-150 ease-out"
+                    style={isSelected ? { backgroundColor: BRAND_TINT_COLOR } : undefined}
+                  >
+                    <NSTypography
+                      variant="paragraph-sb-p3"
+                      as="span"
+                      color={isSelected ? BRAND_COLOR : entry.isActive ? undefined : MUTED_TEXT_COLOR}
+                    >
+                      <span style={!entry.isActive ? { textDecoration: "line-through" } : undefined}>
+                        {entry.canonicalName}
+                      </span>
+                    </NSTypography>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <NSButton type="button" variant="tertiary" size="small" onClick={() => setForm(EMPTY_FORM)}>
+            + Add skill
+          </NSButton>
+        </Card>
+
+        <Card as="form" onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3 bg-gray-50">
           <NSTypography variant="heading-sb-h4" as="h2">
             {form.editingId ? "Edit skill" : "Add a skill"}
           </NSTypography>
@@ -163,76 +210,38 @@ export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboard
               onChange={(e) => setForm((f) => ({ ...f, aliases: e.target.value }))}
             />
           </div>
+
+          {selectedEntry && (
+            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+              Usage: {selectedEntry.usageCount} reference{selectedEntry.usageCount === 1 ? "" : "s"}
+            </NSTypography>
+          )}
+
           <div className="flex items-center gap-3">
             <NSButton type="submit" variant="primary" loading={isSaving}>
               {form.editingId ? "Save changes" : "Add skill"}
             </NSButton>
+            {selectedEntry?.isActive && (
+              <NSButton type="button" variant="tertiary" onClick={() => handleDeactivate(selectedEntry._id)}>
+                Deactivate
+              </NSButton>
+            )}
             {form.editingId && (
               <NSButton type="button" variant="tertiary" onClick={() => setForm(EMPTY_FORM)}>
                 Cancel
               </NSButton>
             )}
           </div>
-          {error && <NSAlert variant="error" icon={null} description={error} />}
-      </Card>
 
-      {skills.length === 0 ? (
-        <EmptyState message="No skills in the taxonomy yet." />
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
-          <table className="w-full min-w-[720px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                {["Name", "Category", "Aliases", "Usage", "Status", ""].map((heading) => (
-                  <th key={heading} className="px-4 py-3">
-                    <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
-                      {heading}
-                    </NSTypography>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {skills.map((entry) => (
-                <tr key={entry._id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-sb-p3">{entry.displayName}</NSTypography>
-                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>{entry.canonicalName}</NSTypography>
-                  </td>
-                  <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-md-p3">{entry.category}</NSTypography>
-                  </td>
-                  <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                      {entry.aliases.length > 0 ? entry.aliases.join(", ") : "—"}
-                    </NSTypography>
-                  </td>
-                  <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-md-p3">{entry.usageCount}</NSTypography>
-                  </td>
-                  <td className="px-4 py-3">
-                    <NSPill color={entry.isActive ? "success" : "error"} isActive>
-                      {entry.isActive ? "Active" : "Inactive"}
-                    </NSPill>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <NSButton variant="tertiary" size="small" onClick={() => startEdit(entry)}>
-                        Edit
-                      </NSButton>
-                      {entry.isActive && (
-                        <NSButton variant="tertiary" size="small" onClick={() => handleDeactivate(entry._id)}>
-                          Deactivate
-                        </NSButton>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+          {selectedEntry && (
+            <NSPill color={selectedEntry.isActive ? "success" : "error"} isActive>
+              {selectedEntry.isActive ? "Active" : "Inactive"}
+            </NSPill>
+          )}
+
+          {error && <NSAlert variant="error" icon={null} description={error} />}
+        </Card>
+      </div>
     </div>
   );
 }

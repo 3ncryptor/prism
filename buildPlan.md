@@ -4566,3 +4566,34 @@ page was missing (`AppShell`, `Sidebar`, `TopBar`, `PageHeader`, `Card`,
 `BucketPill`, `EmptyState`) that 27a and later features build once and reuse,
 instead of each feature's Frontend stage re-inventing its own header as
 happened across #22-27.
+
+## 119.4 Visual design system upgrade (2026-09-10, post-27a)
+
+After 27a shipped, user review against a reference admin panel's screenshots
+(grouped sidebar, navy/indigo brand accent, stat cards with icon badges,
+two-pane master-detail for structured admin data, avatar+dropdown top bar)
+led to inserting **feature 27a2** to apply that direction, plus two new
+decisions:
+
+| # | Question | Decision | Reason |
+|---|---|---|---|
+| 25 | Grayscale-only chrome (original AGENTS.md §6) vs. a brand accent color | **Navy/indigo brand accent** on structural chrome (active nav, primary buttons, key headings) — see revised AGENTS.md §6 | User's explicit choice after reviewing the reference; status colors (success/error/warning) are unchanged and stay visually distinct from the new brand accent |
+| 26 | The reference includes a full dark-themed "Developer" observability dashboard (alerts, DB/Redis metrics, queue backlog) reachable via a toggle | **Deferred — not part of the current 27a-27g batch.** Noted here as a real future feature idea, since Prism's structured logging (feature #27) already produces the data such a dashboard would surface, but no admin UI for it is planned yet | User's explicit choice; building a second, fully-separate dark-themed dashboard is a real scope increase not needed for the current placement-cell V1 |
+
+**Insert into the build order** (between 27a and 27b, since later screens
+should be built with the new visual language from the start rather than
+needing rework):
+
+```text
+27a. Layout shell + navigation
+27a2. Visual design system upgrade                     <- NEW, insert here
+27b. Landing + sign-in redesign
+...
+```
+
+**27a2 scope** (detailed wireframes in `docs/screens.md` §1/§2/§4.9-4.11):
+- Revise `Sidebar`'s active-item styling to the new tinted-pill treatment (navy/indigo, not gray-900/white).
+- Revise `TopBar` to an avatar-chip + dropdown (name, role, Sign out inside the dropdown) instead of plain text + a bare Sign out button. **No notification bell** — Prism has no notification system, and a decorative bell that does nothing is exactly the kind of "looks impressive, does nothing" UI this project's engineering standards reject; omitted deliberately, not an oversight.
+- New shared `StatCard` primitive (icon-in-circle badge, label + sublabel, large number, optional "View X →" link) — replaces the plain Best Fit/Moderate/Low Fit numbers on the Job Detail page, and is available for 27c/27e to use where they show any other counts.
+- Retrofit `SkillTaxonomyDashboard` (already shipped, feature #22b) from its top-form-then-table layout to a two-pane master-detail (list left, create/edit detail right), matching the reference's Roles & Permissions pattern — the closest existing Prism admin screen to that reference.
+- No changes to `docs/screens.md` §4.9-4.11 (Admin Jobs, Job Detail, Job Roles) beyond noting they should use `StatCard` and the new accent color when 27c/27e build them — those features aren't built yet, so there's no rework, just building them correctly the first time.

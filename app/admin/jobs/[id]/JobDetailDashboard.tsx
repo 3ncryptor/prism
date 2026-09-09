@@ -8,6 +8,7 @@ import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
 import { ResultTable, type EnrichedMatchResult } from "@/app/admin/jobs/[id]/ResultTable";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
+import { StatCard } from "@/lib/layout/StatCard";
 
 const POLL_INTERVAL_MS = 3000;
 const NON_TERMINAL_STATUSES: MatchRun["status"][] = ["QUEUED", "RUNNING"];
@@ -131,19 +132,10 @@ export function JobDetailDashboard({
           )}
 
           {bucketCounts && (
-            <div className="flex gap-6 pt-2">
-              <div>
-                <NSTypography variant="heading-sb-h4">{bucketCounts.BEST_FIT}</NSTypography>
-                <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>Best Fit</NSTypography>
-              </div>
-              <div>
-                <NSTypography variant="heading-sb-h4">{bucketCounts.MODERATE_FIT}</NSTypography>
-                <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>Moderate</NSTypography>
-              </div>
-              <div>
-                <NSTypography variant="heading-sb-h4">{bucketCounts.LOW_FIT}</NSTypography>
-                <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>Low Fit</NSTypography>
-              </div>
+            <div className="grid grid-cols-3 gap-4 pt-2">
+              <StatCard label="Best Fit" value={bucketCounts.BEST_FIT} icon="dashboard" />
+              <StatCard label="Moderate" value={bucketCounts.MODERATE_FIT} icon="dashboard" />
+              <StatCard label="Low Fit" value={bucketCounts.LOW_FIT} icon="dashboard" />
             </div>
           )}
 

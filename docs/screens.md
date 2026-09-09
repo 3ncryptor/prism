@@ -442,5 +442,89 @@ Same content as today, moved inside `AdminLayout`, header/sign-out removed.
 | 27f Profile page | 4.8 (new) | `User` gains contact/academic fields |
 | 27g Forgot password | 4.2 (link), 4.3, 4.4 (new) | email provider (Resend) integration; reset-token flow |
 
-Build order stays as previously agreed: 27a → 27b → 27c → 27d → 27e → 27f →
-27g, then resume #28-30.
+Build order: 27a → **27a2** → 27b → 27c → 27d → 27e → 27f → 27g, then resume
+#28-30.
+
+---
+
+## 6. Feature 27a2 — Visual design system upgrade
+
+Decisions recorded in `buildPlan.md` §119.4. Applies a navy/indigo brand
+accent to structural chrome (previously grayscale-only) and two structural
+patterns from a reference admin panel the user reviewed: stat cards with
+icon badges, and two-pane master-detail for structured admin data.
+
+### 6.1 Revised Sidebar (both panels)
+
+```
+┌─────────────────┐
+│ ● Jobs            │   ← active: tinted indigo pill background, indigo text
+│   Skill Taxonomy   │   ← inactive: gray text, hover -> light gray bg
+│   Scoring Config   │
+└─────────────────┘
+```
+Same structure as today's `Sidebar` component — only the active-state color
+changes (indigo-tinted pill instead of near-black `bg-gray-900`). No new nav
+grouping yet (only 3-4 items per panel; the reference's uppercase
+section-label grouping is worth revisiting once there are enough sections to
+warrant it — not now).
+
+### 6.2 Revised TopBar (both panels)
+
+```
+┌──────────────────────────────────────────────────────┐
+│                                    ┌───────────────┐   │
+│                                    │ (A) Admin  ▾  │   │
+│                                    │     admin@...  │   │
+│                                    └───────────────┘   │
+└──────────────────────────────────────────────────────┘
+                                       │
+                                       ▾ (click opens)
+                                     ┌───────────────┐
+                                     │ Sign out        │
+                                     └───────────────┘
+```
+Avatar circle (initial letter, indigo background) + name + email, click to
+open a small dropdown containing "Sign out" (replaces today's bare text +
+always-visible Sign out button). **Deliberately no notification bell** — no
+notification system exists in Prism; a decorative icon with no function
+would be exactly the "looks like it does something, does nothing" pattern
+this project's engineering standards reject.
+
+### 6.3 New `StatCard` primitive
+
+```
+┌────────────────────────┐
+│  Best Fit          (●) │  ← icon in a soft indigo circle badge, top-right
+│                         │
+│  1                      │  ← large bold number
+│                         │
+│  View candidates →      │  ← optional link, indigo
+└────────────────────────┘
+```
+Replaces the plain `<NSTypography>` numbers currently used for Best Fit /
+Moderate / Low Fit on the Job Detail page (`docs/screens.md` §4.10). Props:
+`label`, `value`, `icon` (optional), `href`+`linkLabel` (optional — omitted
+when there's nothing to link to, e.g. a static count).
+
+### 6.4 Skill Taxonomy — retrofit to master-detail
+
+```
+┌───────────────┬────────────────────────────────────────┐
+│ Skills          │  Name          [python_____________]   │
+│ ─────────────── │  Display name  [Python______________]  │
+│ ● python        │  Category      [LANGUAGE ▾]             │
+│   django         │  Aliases       [py, python3__________]  │
+│   react          │  Usage: 2 references                    │
+│   sql            │                                         │
+│   ...            │  [ Save changes ]  [ Deactivate ]        │
+│ [+ Add skill]    │                                         │
+└───────────────┴────────────────────────────────────────┘
+```
+Left pane: scrollable list of all skills (active ones normal weight,
+inactive ones grayed/struck-through), selected one highlighted (same tinted
+style as the active sidebar item). Right pane: the create/edit form for
+whichever skill is selected, or a blank "Add skill" form when none is
+selected. Functionally identical to today's `SkillTaxonomyDashboard` (same
+create/edit/deactivate/usage-count logic) — purely a layout change, replacing
+the current top-form-then-flat-table structure.

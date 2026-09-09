@@ -354,17 +354,22 @@ not using the `apps/`+`packages/` split originally sketched in `buildPlan.md`
 - **PR requirement:** PR description auto-populated from `qa-report.md` verdict +
   links to the four artifacts.
 
-### Design System / Visual Style
+### Design System / Visual Style (revised 2026-09-10 — see feature 27a2)
 
-- **Palette:** black-and-white(ish) — near-black and near-white as the dominant
-  backgrounds/surfaces, with a grayscale range for borders, dividers, and
-  secondary surfaces. Body/heading text is black (or near-black) on light
-  surfaces.
-- **Color is reserved for meaning, not decoration:** statuses, badges, alerts,
-  links, and similar semantic elements use color (e.g. green for
-  success/pass, red for error/fail, amber for warning/pending, blue for info).
-  Do not use accent colors on structural chrome (nav, cards, backgrounds) —
-  keep that grayscale.
+- **Palette:** light surfaces (near-white background, white cards) with a
+  grayscale range for borders/dividers/secondary text, **plus a navy/indigo
+  brand accent** used deliberately on structural chrome — active sidebar
+  items (tinted pill background), primary buttons, key headings, brand-
+  adjacent badges (e.g. a role badge). This supersedes the original
+  "grayscale-only, no accent on structural chrome" rule, adopted after user
+  review of a reference admin panel design (screenshots discussed in-session,
+  not committed to the repo). Body text stays black/near-black on light
+  surfaces; the brand accent is for emphasis and interactive/active elements,
+  not for large surface fills.
+- **Color still carries meaning first:** statuses/badges/alerts (green
+  success, red error, amber warning/pending) are unchanged and stay visually
+  distinct from the brand accent — never reuse the brand blue for a status
+  meaning, and never use a status color for plain branding/navigation.
 - **Typography:** a clean, modern sans-serif font. Comfortable, readable sizing
   (avoid cramped small text) — establish a clear type scale (e.g. distinct sizes
   for page titles, section headings, body text, captions) and use it

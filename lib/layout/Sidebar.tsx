@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NSTypography } from "@newtonschool/grauity";
+import { BRAND_COLOR, BRAND_TINT_COLOR } from "@/lib/grauityTheme";
 
 export interface SidebarNavItem {
   label: string;
@@ -64,13 +65,13 @@ export function Sidebar({ items }: SidebarProps) {
             // Background is an inline style, not a Tailwind class, on the
             // active item: Grauity ships an unlayered anchor-tag reset
             // (background-color: transparent) that otherwise beats
-            // Tailwind's layered `.bg-gray-900` utility regardless of
-            // specificity — see the display:block note above for the
-            // same mechanism. Inline styles always win.
+            // Tailwind's layered utility classes regardless of specificity
+            // — see the display:block note above for the same mechanism.
+            // Inline styles always win.
             className={`rounded-md px-3 py-2 transition-colors duration-150 ease-out ${!isActive ? "hover:bg-gray-200" : ""}`}
-            style={isActive ? { backgroundColor: "#111827" } : undefined}
+            style={isActive ? { backgroundColor: BRAND_TINT_COLOR } : undefined}
           >
-            <NSTypography variant="paragraph-sb-p3" as="span" color={isActive ? "#ffffff" : undefined}>
+            <NSTypography variant="paragraph-sb-p3" as="span" color={isActive ? BRAND_COLOR : undefined}>
               {item.label}
             </NSTypography>
           </Link>
