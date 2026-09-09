@@ -1,0 +1,85 @@
+
+# Spins up everything: MongoDB, Redis, the Next.js app, and the document-
+# processing worker. Real external services (Pinecone, S3, Gemini) stay as
+# real cloud endpoints — reached via the secrets in your own .env, never
+# containerized or baked into an image.
+#
+# One-time setup: copy .env.example to .env and fill in the real secrets
+# (see .env.example for what's needed). If you were previously running the
+# standalone `prism-mongo`/`prism-redis` containers from buildPlan.md §93
+# (`docker run --name prism-mongo ...`), stop those first —
+# `docker stop prism-mongo prism-redis` — since compose now manages its own
+# Mongo/Redis containers on the same host ports.
+#
+# Usage:
+#   docker compose up --build        # start everything
+#   docker compose run --rm app npm run seed   # seed dev accounts + taxonomy
+
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # In-network service hostnames override whatever .env has for local
+      # (non-Docker) dev — containers can't reach the host's "localhost".
+      MONGODB_URI: mongodb://mongo:27017/prism?directConnection=true
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["npm", "run", "start"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/prism?directConnection=true
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["npm", "run", "worker"]
+
+volumes:
+  mongo-data:
+  redis-data:
