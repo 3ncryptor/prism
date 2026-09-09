@@ -46,6 +46,12 @@ export class StudentProfileRepository {
     const docs = await collection.find({ isActive: true }).toArray();
     return docs.map(toStudentProfile);
   }
+
+  /** buildPlan.md §116: usage count for the skill taxonomy admin table. */
+  async countReferencingSkill(canonicalName: string): Promise<number> {
+    const collection = await this.getCollection();
+    return collection.countDocuments({ "skills.canonicalName": canonicalName });
+  }
 }
 
 async function defaultCollection(): Promise<Collection<StudentProfileDocument>> {

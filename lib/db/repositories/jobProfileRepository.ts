@@ -25,6 +25,17 @@ export class JobProfileRepository {
     const doc = await collection.findOne({ jobId });
     return doc ? toJobProfile(doc) : null;
   }
+
+  /** buildPlan.md §116: usage count for the skill taxonomy admin table. */
+  async countReferencingSkill(canonicalName: string): Promise<number> {
+    const collection = await this.getCollection();
+    return collection.countDocuments({
+      $or: [
+        { "requiredSkills.canonicalName": canonicalName },
+        { "preferredSkills.canonicalName": canonicalName },
+      ],
+    });
+  }
 }
 
 async function defaultCollection(): Promise<Collection<JobProfileDocument>> {

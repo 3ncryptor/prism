@@ -53,6 +53,55 @@ export class SkillTaxonomyRepository {
     const docs = await collection.find({ isActive: true }).toArray();
     return docs.map(toEntry);
   }
+
+  /** buildPlan.md §116: admin table shows both active and inactive skills. */
+  async list(): Promise<SkillTaxonomyEntry[]> {
+    const collection = await this.getCollection();
+    const docs = await collection.find({}).sort({ canonicalName: 1 }).toArray();
+    return docs.map(toEntry);
+  }
+
+  async getById(id: string): Promise<SkillTaxonomyEntry | null> {
+    const collection = await this.getCollection();
+    const doc = await collection.findOne({ _id: new ObjectId(id) });
+    return doc ? toEntry(doc) : null;
+  }
+
+  async create(
+    input: Omit<SkillTaxonomyEntry, "_id" | "isActive" | "createdAt" | "updatedAt">,
+  ): Promise<SkillTaxonomyEntry> {
+    const collection = await this.getCollection();
+    const now = new Date();
+    const doc: SkillTaxonomyDocument = {
+      _id: new ObjectId(),
+      ...input,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await collection.insertOne(doc);
+    return toEntry(doc);
+  }
+
+  /** buildPlan.md §116: edit name/category/aliases; isActive is toggled via deactivate() only. */
+  async update(
+    id: string,
+    patch: Partial<Pick<SkillTaxonomyEntry, "displayName" | "category" | "aliases">>,
+  ): Promise<SkillTaxonomyEntry | null> {
+    const collection = await this.getCollection();
+    const result = await collection.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: { ...patch, updatedAt: new Date() } },
+      { returnDocument: "after" },
+    );
+    return result ? toEntry(result as SkillTaxonomyDocument) : null;
+  }
+
+  /** buildPlan.md §116: soft-delete only — never hard-delete a referenced canonical skill. */
+  async deactivate(id: string): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateOne({ _id: new ObjectId(id) }, { $set: { isActive: false, updatedAt: new Date() } });
+  }
 }
 
 async function defaultCollection(): Promise<Collection<SkillTaxonomyDocument>> {

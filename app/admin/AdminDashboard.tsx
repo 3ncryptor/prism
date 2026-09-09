@@ -37,11 +37,18 @@ export function AdminDashboard({ adminName, adminEmail, initialJobs, onSignOut }
               {adminEmail}
             </NSTypography>
           </div>
-          <form action={onSignOut}>
-            <NSButton variant="tertiary" type="submit">
-              Sign out
-            </NSButton>
-          </form>
+          <div className="flex items-center gap-3">
+            <Link href="/admin/skill-taxonomy">
+              <NSButton variant="tertiary" type="button">
+                Skill taxonomy
+              </NSButton>
+            </Link>
+            <form action={onSignOut}>
+              <NSButton variant="tertiary" type="submit">
+                Sign out
+              </NSButton>
+            </form>
+          </div>
         </header>
 
         <section className="flex flex-col gap-3">
