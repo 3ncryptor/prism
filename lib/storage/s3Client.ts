@@ -13,6 +13,7 @@ function getClient(): S3Client {
   const config = getS3Config();
   cachedClient = new S3Client({
     endpoint: config.endpoint,
+    region: config.region,
     forcePathStyle: Boolean(config.endpoint), // required for MinIO/R2-style endpoints
     credentials: { accessKeyId: config.accessKey, secretAccessKey: config.secretKey },
   });

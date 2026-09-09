@@ -126,8 +126,12 @@ defined in `spec.md`. Never touches UI/rendering code.
 - Implement against the contract as written. If the contract turns out to be
   unworkable during implementation, don't silently deviate — update `spec.md` with
   a note explaining why, and flag it in the handoff artifact so Frontend/QA see it.
-- Write unit tests alongside the implementation (not after, not skipped). Backend
-  code without tests is not considered "done."
+- Write unit tests for deterministic/rule-based logic alongside the implementation
+  (not after, not skipped) — see Cross-Cutting Rule 4 for the current scope of
+  this (user override, 2026-09-11): full coverage for matching-engine-style pure
+  logic, no exhaustive suites for things that only real content can actually
+  verify (extraction/embedding quality). `lint`/`typecheck`/`build` passing is
+  still required for every feature regardless.
 - Validate inputs, handle errors explicitly, and cover the edge cases listed in the
   spec — don't leave them as `// TODO`.
 - Follow existing repo conventions for framework, ORM, error handling, and folder
@@ -275,7 +279,20 @@ PASS. No agent, including Backend or Frontend under time pressure, may skip this
    require crossing lanes, that's a signal the spec was incomplete — route back to PM.
 3. **No silent scope changes.** Any deviation from the spec, in either direction, is
    written down in the handoff doc, not just done quietly.
-4. **Tests are not optional.** Code without tests does not pass to the next stage.
+4. **Tests are not optional — for deterministic logic. (User override,
+   2026-09-11, see buildPlan.md §118 addendum item 13.)** Write real unit
+   tests for anything that is pure/deterministic and doesn't need real
+   content to verify (the matching engine's scoring, bucketing, penalty,
+   and eligibility logic — features #17-#21 — plus any similar rule-based
+   logic elsewhere). Do **not** build exhaustive test suites for features
+   whose real value can only be judged against real content the user
+   hasn't provided yet (LLM extraction quality, embedding/vector-search
+   relevance, end-to-end upload flows) — a synthetic fixture there
+   produces false confidence, not real verification; those get verified
+   manually once real resumes/JDs exist. `npm run lint`, `npm run
+   typecheck`, and `npm run build` staying green is still non-negotiable
+   for every feature regardless — those catch real bugs cheaply and don't
+   depend on real content to be meaningful.
 5. **Small, reviewable commits.** Each pipeline run should map to one coherent
    commit (or PR), with a message summarizing what PM/Backend/Frontend/QA did —
    not a giant undifferentiated diff.

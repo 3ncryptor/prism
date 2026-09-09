@@ -2,7 +2,7 @@
 
 **Status:** V1 implementation specification  
 **Audience:** Coding agents and engineers building the system  
-**Stack constraint:** Next.js + TypeScript backend/frontend, MongoDB, Qdrant  
+**Stack constraint:** Next.js + TypeScript backend/frontend, MongoDB, a vector store (Pinecone active as of 2026-09-11, architected as swappable — see §115a)  
 **Primary goal:** Given a student's resume and a placement-cell Job Description (JD), produce an explainable fit score and bucket for every student, while preserving enough evidence to audit why the score was produced.
 
 ---
@@ -267,9 +267,10 @@ MongoDB stores:
 
 ### Vector database
 
-- Qdrant
+- **Pinecone** (finalized 2026-09-11 — see §115a for the plug-and-play
+  rationale; Qdrant is a documented future swap-in, not the active store)
 
-Qdrant stores embeddings for:
+The vector store stores embeddings for:
 
 - student skills
 - student projects
@@ -1764,6 +1765,15 @@ interface MatchResult {
 ```
 
 ---
+
+> **Note (2026-09-11):** §39-§44 below were written against Qdrant, which
+> is no longer the active vector store (see §111, §115a) — Pinecone is.
+> Read "Qdrant" in these sections as shorthand for "the configured vector
+> store provider" unless a sentence is specifically about Qdrant as the
+> future swap-in target. The architectural point of these sections — a
+> vector store used for candidate retrieval and semantic evidence, never
+> as the final ranking authority — is provider-agnostic and still holds
+> exactly as written.
 
 # 39. Qdrant Architecture
 
@@ -3299,11 +3309,17 @@ Example:
 
 ```text
 MONGODB_URI=
-QDRANT_URL=
-QDRANT_API_KEY=
-
 REDIS_URL=
 
+# Active vector store (§115a, finalized 2026-09-11):
+PINECONE_API_KEY=
+PINECONE_INDEX=
+# Kept as a comment, not deleted — reintroduce if/when Qdrant is swapped
+# back in per §115a's pricing-dependent reversal:
+# QDRANT_URL=
+# QDRANT_API_KEY=
+
+AWS_REGION=
 S3_ENDPOINT=
 S3_BUCKET=
 S3_ACCESS_KEY=
@@ -3357,15 +3373,30 @@ Do not depend on serverless request lifetime for long-running document processin
 
 # 93. Development Environment
 
-Do **not** use Docker/Docker Compose for the app's own local runtime dependencies (the Next.js app and workers should not assume a container is providing their services). Run local dependencies as native installs or managed cloud dev instances:
+**Superseded 2026-09-11 (user decision):** the original rule below still
+governs staging/production (managed cloud services, not containers), but
+for **local dev**, MongoDB and Redis run as persistent local Docker
+containers (`prism-mongo` on `27017`, `prism-redis` on `6380` — `6379` was
+already occupied by an unrelated project's container on this machine),
+started with `--restart unless-stopped` so they survive reboots. This is
+a deliberate simplification over a real Atlas/Upstash account for this
+project's current stage. The app code still only ever reads
+`MONGODB_URI`/`REDIS_URL` from env — it has no idea whether a container or
+a managed service is on the other end, so nothing else changes if this is
+revisited later.
+
+Original rule (still applies to anything not listed above, and to
+staging/production regardless): do **not** use Docker/Docker Compose for
+the app's own local runtime dependencies. Run local dependencies as native
+installs or managed cloud dev instances:
 
 ```text
-MongoDB      → local mongod install, or a free-tier Atlas dev cluster
-Redis        → local redis-server install, or a free-tier Upstash/Redis Cloud instance
-Qdrant       → local Qdrant binary/install, or a free-tier Qdrant Cloud instance
+MongoDB      → persistent local Docker container (superseding note above), or a free-tier Atlas dev cluster in prod
+Redis        → persistent local Docker container (superseding note above), or a free-tier Upstash/Redis Cloud instance in prod
+Vector store → Pinecone (§115a) — cloud-only, no self-hosted/Docker option; a real account is required even for dev
 ```
 
-Connection details for whichever option is chosen go in `.env`/`.env.example` (`MONGODB_URI`, `REDIS_URL`, `QDRANT_URL`), so the app code never assumes a specific runtime (containerized or not) is providing them.
+Connection details for whichever option is chosen go in `.env`/`.env.example` (`MONGODB_URI`, `REDIS_URL`, `PINECONE_API_KEY`, `PINECONE_INDEX`), so the app code never assumes a specific runtime (containerized or not) is providing them.
 
 **Exception — test infrastructure (finalized, 2026-09-11):** integration
 tests **may** use Docker via `testcontainers` to run a real, ephemeral
@@ -4015,9 +4046,9 @@ The final V1 system should look like:
 | Decision | V1 Choice |
 |---|---|
 | Backend | Next.js + TypeScript (single project, not a monorepo — §115) |
-| Database | MongoDB |
-| Vector DB | Qdrant |
-| File storage | S3 |
+| Database | MongoDB (local Docker in dev, persistent — §93) |
+| Vector DB | Pinecone, behind a swappable `VectorStoreProvider` interface (§115a); Qdrant is a documented future swap-in, not built |
+| File storage | Real AWS S3 (credentials provided 2026-09-11) |
 | Queue | Redis + BullMQ |
 | Resume extraction | PDF/DOCX parsers |
 | OCR | Only as fallback |
@@ -4329,6 +4360,42 @@ prism/
 
 ---
 
+# 115a. Vector Store: Pinecone, Architected as Swappable (finalized 2026-09-11)
+
+**Decision:** Pinecone is the active vector store for V1, not Qdrant. This
+is a business/pricing decision (Qdrant Cloud pricing wasn't acceptable at
+this stage), explicitly reversible once pricing is renegotiated — "once
+the client loves the Pinecone stuff, then we get the pricing for Qdrant."
+The codebase must not make that reversal expensive.
+
+**How this stays plug-and-play:** the same pattern already used for LLM
+extraction and embeddings (§5.7's `ExtractionProvider`/`EmbeddingProvider`
+interfaces) applies here. Define a `VectorStoreProvider` interface —
+`upsert(points)`, `search(vector, filter, topK)`, `delete(ids)` — with a
+`PineconeVectorStoreProvider` implementation now. `lib/vectorStore/`
+replaces the originally-planned `lib/qdrant/` directory name (§115's tree);
+everything else in §39-§44's architecture (candidate retrieval, semantic
+evidence rather than final ranking, per-feature-type payloads) is written
+against the interface, not the vendor SDK directly — no calling code
+should ever import `@pinecone-database/pinecone` or a future Qdrant client
+except inside that one provider file each.
+
+**Known asymmetry to design around:** Qdrant supports local/Docker
+self-hosting (used for this project's test infra elsewhere); Pinecone is
+cloud-only. A `QdrantVectorStoreProvider` added later would actually be
+*easier* to integration-test than the Pinecone one is today. Until a real
+Pinecone account/index exists, `VectorStoreProvider` is tested via a
+mocked/in-memory fake at the interface level (same spirit as
+`tests/helpers/fakeCollection.ts` for Mongo) — real-Pinecone verification
+happens once real credentials are available, same pattern as feature #8's
+Gemini key.
+
+**Env vars:** `PINECONE_API_KEY`, `PINECONE_INDEX` (replacing `QDRANT_URL`/
+`QDRANT_API_KEY` in §91/§111's env var list — kept there as comments for
+when Qdrant is reintroduced, not deleted outright).
+
+---
+
 # 116. Skill Taxonomy & Scoring Config Admin UI — Feature Addendum
 
 §99 originally framed the skill taxonomy as "start with a manually curated
@@ -4421,3 +4488,13 @@ Undefined types from the original spec, now defined: `Education`,
 `ExperienceRequirement`, `JobConstraint`, `SemanticRequirement` (§113.1).
 Evidence-verification mechanism (§20 Rule 2), now concretely specified
 (§114).
+
+## Addendum, 2026-09-11
+
+| # | Question | Decision | Reason |
+|---|---|---|---|
+| 9 | Vector DB, again: Qdrant vs Pinecone | **Pinecone**, reversing decision #1 above | Business/pricing decision, not technical — Qdrant Cloud pricing wasn't acceptable at this stage. Architected as swappable (`VectorStoreProvider` interface, §115a) specifically so this can flip back once Qdrant pricing is renegotiated, without this becoming another expensive reversal |
+| 10 | Mongo/Redis: real cloud accounts (Atlas/Upstash) vs local Docker | **Persistent local Docker containers** (`prism-mongo`:27017, `prism-redis`:6380) | User decision to defer real cloud accounts for these two specifically; app code is unaffected either way (still just reads `MONGODB_URI`/`REDIS_URL`) |
+| 11 | Object storage | **Real AWS S3**, credentials provided 2026-09-11 | Matches the original §5.1 recommendation and the earlier decision log's choice; no longer using MinIO except for automated tests |
+| 12 | Prod LLM/embedding providers (Anthropic, OpenAI): build now or defer | **Defer** | Prove out the Gemini (dev) path fully first; build the adapters once that's validated, not speculatively alongside it |
+| 13 | Per-feature test coverage depth | **Reduced, deliberately.** Keep tests for deterministic logic that doesn't need real content (matching engine scoring/bucketing, feature #17-21). Skip exhaustive suites for anything whose real value depends on real files/content (extraction quality, embedding relevance) — synthetic fixtures there were producing false confidence, not real verification, and real API/Docker test-infra debugging was consuming more session cost than the feature logic itself | User's explicit call, following feature #8's experience: without real resumes/JDs, testing extraction "quality" against invented fixtures doesn't actually verify quality. Manual verification with real data, once available, is the real check for those. `lint`/`typecheck`/`build` staying green remains non-negotiable — those catch real bugs cheaply, as this session's several real-bug-finds via typecheck/build attest |

@@ -31,12 +31,16 @@ export function getQdrantConfig(): { url: string; apiKey?: string } {
 
 export function getS3Config(): {
   endpoint?: string;
+  region: string;
   bucket: string;
   accessKey: string;
   secretKey: string;
 } {
   return {
     endpoint: process.env.S3_ENDPOINT,
+    // Real AWS needs a real region; MinIO/R2-style endpoints ignore it but
+    // the AWS SDK still requires the field to be present.
+    region: process.env.AWS_REGION || "us-east-1",
     bucket: requireEnv("S3_BUCKET"),
     accessKey: requireEnv("S3_ACCESS_KEY"),
     secretKey: requireEnv("S3_SECRET_KEY"),

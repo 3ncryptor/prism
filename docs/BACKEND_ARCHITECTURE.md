@@ -11,6 +11,16 @@ This doc supersedes `buildPlan.md` §115 with file-level detail and expands
 §47–§64 into concrete method signatures and algorithms. Section numbers below
 are local to this document (not continuous with `buildPlan.md`'s numbering).
 
+> **Note (2026-09-11):** every "Qdrant"/`qdrantService` reference below
+> predates `buildPlan.md` §115a, which finalized **Pinecone** as the active
+> vector store behind a swappable `VectorStoreProvider` interface. Treat
+> `lib/qdrant/` as `lib/vectorStore/` and `qdrantService` as
+> `vectorStoreService` throughout — the retrieval/candidate-matching
+> architecture described here is unchanged and provider-agnostic; only the
+> concrete vendor is different. Not rewritten line-by-line to keep this
+> note isolated to one place; finalize exact naming when feature #14-16
+> actually implements this layer.
+
 ---
 
 ## 0. Clarified ambiguities (read this first)
@@ -683,8 +693,9 @@ runtime error deep in a request/job (per global security guidance: "validate
 that required secrets are present at startup").
 
 ```text
-MONGODB_URI, REDIS_URL, QDRANT_URL, QDRANT_API_KEY,
-S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY,
+MONGODB_URI, REDIS_URL,
+PINECONE_API_KEY, PINECONE_INDEX,   # active vector store, §115a
+AWS_REGION, S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY,
 EXTRACTION_PROVIDER=gemini|claude, EMBEDDING_PROVIDER=gemini|openai,
 GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY,
 AUTH_SECRET
