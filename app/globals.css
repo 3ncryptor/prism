@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@newtonschool/grauity/tokens.css";
 
 /*
  * Design system tokens (AGENTS.md §6): grayscale surfaces/text, color

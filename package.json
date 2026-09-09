@@ -11,13 +11,15 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "AUTH_SECRET=test-secret-for-e2e-only playwright test",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "worker": "tsx workers/document-worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "@aws-sdk/client-s3": "^3.1125.0",
     "@aws-sdk/s3-request-presigner": "^3.1125.0",
     "@google/generative-ai": "^0.24.1",
+    "@newtonschool/grauity": "^3.5.4",
     "@pinecone-database/pinecone": "^8.2.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "bcryptjs": "^3.0.3",
@@ -33,6 +35,8 @@
     "pino": "^10.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "sass": "^1.104.0",
+    "styled-components": "^6.5.3",
     "zod": "^4.5.4"
   },
   "devDependencies": {

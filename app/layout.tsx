@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { GrauityProviders } from "@/lib/grauityProviders";
+import { StyledComponentsRegistry } from "@/lib/styledComponentsRegistry";
 import "./globals.css";
+import "./grauity.scss";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,7 +27,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <StyledComponentsRegistry>
+          <GrauityProviders>{children}</GrauityProviders>
+        </StyledComponentsRegistry>
+      </body>
     </html>
   );
 }
