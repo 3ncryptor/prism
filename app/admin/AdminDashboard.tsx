@@ -43,6 +43,11 @@ export function AdminDashboard({ adminName, adminEmail, initialJobs, onSignOut }
                 Skill taxonomy
               </NSButton>
             </Link>
+            <Link href="/admin/scoring-configs">
+              <NSButton variant="tertiary" type="button">
+                Scoring config
+              </NSButton>
+            </Link>
             <form action={onSignOut}>
               <NSButton variant="tertiary" type="submit">
                 Sign out
