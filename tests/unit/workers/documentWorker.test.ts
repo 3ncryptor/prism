@@ -62,6 +62,7 @@ function baseDeps() {
       extractJD: jest.fn().mockResolvedValue({ title: "" }),
     },
     normalizeProfile: jest.fn().mockReturnValue(makeProfile()),
+    indexStudentProfile: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -76,7 +77,7 @@ describe("processResumeJob", () => {
     await expect(processResumeJob("missing", deps)).rejects.toThrow(/not found/);
   });
 
-  it("happy path: EXTRACTING -> EXTRACTED -> STRUCTURING -> VALIDATING -> READY", async () => {
+  it("happy path: EXTRACTING -> EXTRACTED -> STRUCTURING -> VALIDATING -> INDEXING -> READY", async () => {
     const profile = makeProfile();
     const deps = makeDeps({ normalizeProfile: jest.fn().mockReturnValue(profile) });
 
@@ -90,7 +91,9 @@ describe("processResumeJob", () => {
     expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(4, "resume-1", "VALIDATING");
     expect(deps.normalizeProfile).toHaveBeenCalled();
     expect(deps.studentProfiles.save).toHaveBeenCalledWith(profile, { markActive: true });
-    expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(5, "resume-1", "READY");
+    expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(5, "resume-1", "INDEXING");
+    expect(deps.indexStudentProfile).toHaveBeenCalled();
+    expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(6, "resume-1", "READY");
   });
 
   it("uses the DOCX extractor for a .docx key", async () => {
@@ -203,6 +206,7 @@ function baseJobDeps() {
       extractJD: jest.fn().mockResolvedValue({ title: "Backend Engineer" }),
     },
     normalizeJobProfile: jest.fn().mockReturnValue(makeJobProfile()),
+    indexJobProfile: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -217,7 +221,7 @@ describe("processJobJob", () => {
     await expect(processJobJob("missing", deps)).rejects.toThrow(/not found/);
   });
 
-  it("happy path: EXTRACTING -> EXTRACTED -> STRUCTURING -> VALIDATING -> READY", async () => {
+  it("happy path: EXTRACTING -> EXTRACTED -> STRUCTURING -> VALIDATING -> INDEXING -> READY", async () => {
     const profile = makeJobProfile();
     const deps = makeJobDeps({ normalizeJobProfile: jest.fn().mockReturnValue(profile) });
 
@@ -231,7 +235,9 @@ describe("processJobJob", () => {
     expect(deps.jobs.updateStatus).toHaveBeenNthCalledWith(4, "job-1", "VALIDATING");
     expect(deps.normalizeJobProfile).toHaveBeenCalledWith({ title: "Backend Engineer" }, { jobId: "job-1" });
     expect(deps.jobProfiles.save).toHaveBeenCalledWith(profile);
-    expect(deps.jobs.updateStatus).toHaveBeenNthCalledWith(5, "job-1", "READY");
+    expect(deps.jobs.updateStatus).toHaveBeenNthCalledWith(5, "job-1", "INDEXING");
+    expect(deps.indexJobProfile).toHaveBeenCalled();
+    expect(deps.jobs.updateStatus).toHaveBeenNthCalledWith(6, "job-1", "READY");
   });
 
   it("uses the DOCX extractor for a .docx key", async () => {

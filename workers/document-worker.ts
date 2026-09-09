@@ -25,6 +25,10 @@ import {
 import {
   normalizeJobProfile as defaultNormalizeJobProfile,
 } from "@/lib/extraction/normalizeJobProfile";
+import {
+  indexStudentProfile as defaultIndexStudentProfile,
+  indexJobProfile as defaultIndexJobProfile,
+} from "@/lib/services/embeddingService";
 import type { ExtractionProvider } from "@/lib/extraction/extractionProvider";
 import { logger } from "@/lib/logger";
 import type { DocumentProcessingJobPayload } from "@/lib/queue/jobTypes";
@@ -42,6 +46,7 @@ type ProcessResumeDeps = {
   checkTextQuality: typeof defaultCheckTextQuality;
   extractionProvider: ExtractionProvider;
   normalizeProfile: typeof defaultNormalizeProfile;
+  indexStudentProfile: typeof defaultIndexStudentProfile;
 };
 
 const defaultDeps: ProcessResumeDeps = {
@@ -54,6 +59,7 @@ const defaultDeps: ProcessResumeDeps = {
   checkTextQuality: defaultCheckTextQuality,
   extractionProvider: new GeminiExtractionProvider(),
   normalizeProfile: defaultNormalizeProfile,
+  indexStudentProfile: defaultIndexStudentProfile,
 };
 
 type ProcessJobDeps = {
@@ -65,6 +71,7 @@ type ProcessJobDeps = {
   checkTextQuality: typeof defaultCheckTextQuality;
   extractionProvider: ExtractionProvider;
   normalizeJobProfile: typeof defaultNormalizeJobProfile;
+  indexJobProfile: typeof defaultIndexJobProfile;
 };
 
 const defaultJobDeps: ProcessJobDeps = {
@@ -76,12 +83,12 @@ const defaultJobDeps: ProcessJobDeps = {
   checkTextQuality: defaultCheckTextQuality,
   extractionProvider: new GeminiExtractionProvider(),
   normalizeJobProfile: defaultNormalizeJobProfile,
+  indexJobProfile: defaultIndexJobProfile,
 };
 
 /**
  * buildPlan.md §17/§59: UPLOADED->EXTRACTING->EXTRACTED->STRUCTURING->
- * VALIDATING->READY. Stops before INDEXING (embeddings, feature #14) —
- * see docs/agent-artifacts/08-llm-extraction/spec.md.
+ * VALIDATING->INDEXING->READY (feature #14/#15 wires up the INDEXING step).
  */
 export async function processResumeJob(
   resumeId: string,
@@ -137,7 +144,11 @@ export async function processResumeJob(
       throw error;
     }
 
-    await deps.studentProfiles.save(profile, { markActive: true });
+    const savedProfile = await deps.studentProfiles.save(profile, { markActive: true });
+
+    await deps.resumes.updateStatus(resumeId, "INDEXING");
+    await deps.indexStudentProfile(savedProfile);
+
     await deps.resumes.updateStatus(resumeId, "READY");
   } catch (error) {
     await deps.resumes.updateStatus(resumeId, "FAILED", {
@@ -199,7 +210,11 @@ export async function processJobJob(
       throw error;
     }
 
-    await deps.jobProfiles.save(profile);
+    const savedProfile = await deps.jobProfiles.save(profile);
+
+    await deps.jobs.updateStatus(jobId, "INDEXING");
+    await deps.indexJobProfile(savedProfile);
+
     await deps.jobs.updateStatus(jobId, "READY");
   } catch (error) {
     await deps.jobs.updateStatus(jobId, "FAILED", {

@@ -12,7 +12,7 @@
     "test:watch": "jest --watch",
     "test:e2e": "AUTH_SECRET=test-secret-for-e2e-only playwright test",
     "seed": "tsx scripts/seed.ts",
-    "worker": "tsx workers/document-worker.ts"
+    "worker": "tsx workers/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

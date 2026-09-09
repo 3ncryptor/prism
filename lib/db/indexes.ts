@@ -15,4 +15,14 @@ export async function ensureIndexes(db: Db): Promise<void> {
 
   await db.collection("skillTaxonomy").createIndex({ canonicalName: 1 }, { unique: true });
   await db.collection("skillTaxonomy").createIndex({ isActive: 1 });
+
+  await db.collection("matchRuns").createIndex({ jobId: 1 });
+  await db.collection("matchResults").createIndex({ matchRunId: 1, studentId: 1 }, { unique: true });
+  await db.collection("matchResults").createIndex({ jobId: 1, bucket: 1 });
+
+  await db.collection("scoringConfigs").createIndex({ version: 1 }, { unique: true });
+  // isActive is an application-level invariant (exactly one true), enforced
+  // by ScoringConfigRepository.activate()'s two sequential updates, not a
+  // unique index — Mongo can't express "at most one true" as one.
+  await db.collection("scoringConfigs").createIndex({ isActive: 1 });
 }
