@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+/**
+ * LLM providers (instructed by our own prompt to use `null` for absent
+ * optional fields, per standard JSON convention) return `null`, not
+ * `undefined` — `.optional()` alone rejects `null`. Accept both, normalize
+ * to `undefined` so the rest of the codebase's `field?: T` types hold.
+ */
+function nullish<T extends z.ZodTypeAny>(schema: T) {
+  return schema
+    .nullish()
+    .transform((value) => value ?? undefined) as unknown as z.ZodOptional<T>;
+}
+
 export const skillCategorySchema = z.enum([
   "LANGUAGE",
   "FRAMEWORK",
@@ -15,15 +27,15 @@ export const skillSchema = z.object({
   name: z.string(),
   canonicalName: z.string(),
   category: skillCategorySchema,
-  proficiency: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).optional(),
+  proficiency: nullish(z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"])),
   evidence: z.array(z.string()),
-  yearsOfExperience: z.number().optional(),
+  yearsOfExperience: nullish(z.number()),
 });
 export type Skill = z.infer<typeof skillSchema>;
 
 const durationSchema = z.object({
-  start: z.string().optional(),
-  end: z.string().optional(),
+  start: nullish(z.string()),
+  end: nullish(z.string()),
 });
 
 export const projectSchema = z.object({
@@ -32,8 +44,8 @@ export const projectSchema = z.object({
   technologies: z.array(z.string()),
   responsibilities: z.array(z.string()),
   outcomes: z.array(z.string()),
-  duration: durationSchema.optional(),
-  embeddingId: z.string().optional(),
+  duration: nullish(durationSchema),
+  embeddingId: nullish(z.string()),
 });
 export type Project = z.infer<typeof projectSchema>;
 
@@ -44,7 +56,7 @@ export const experienceSchema = z.object({
   responsibilities: z.array(z.string()),
   technologies: z.array(z.string()),
   duration: durationSchema,
-  months: z.number().optional(),
+  months: nullish(z.number()),
 });
 export type Experience = z.infer<typeof experienceSchema>;
 
@@ -52,24 +64,24 @@ export const educationSchema = z.object({
   degree: z.string(),
   field: z.string(),
   institution: z.string(),
-  startYear: z.number().optional(),
-  endYear: z.number().optional(),
-  cgpa: z.number().optional(),
+  startYear: nullish(z.number()),
+  endYear: nullish(z.number()),
+  cgpa: nullish(z.number()),
   evidence: z.array(z.string()),
 });
 export type Education = z.infer<typeof educationSchema>;
 
 export const certificationSchema = z.object({
   name: z.string(),
-  issuer: z.string().optional(),
-  issuedDate: z.string().optional(),
+  issuer: nullish(z.string()),
+  issuedDate: nullish(z.string()),
   evidence: z.array(z.string()),
 });
 export type Certification = z.infer<typeof certificationSchema>;
 
 export const achievementSchema = z.object({
   title: z.string(),
-  description: z.string().optional(),
+  description: nullish(z.string()),
   evidence: z.array(z.string()),
 });
 export type Achievement = z.infer<typeof achievementSchema>;

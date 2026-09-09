@@ -6,29 +6,44 @@ import { downloadFile as s3DownloadFile } from "@/lib/storage/s3Client";
 import { extractPdfText as defaultExtractPdfText } from "@/lib/extract/pdfExtractor";
 import { extractDocxText as defaultExtractDocxText } from "@/lib/extract/docxExtractor";
 import { checkTextQuality as defaultCheckTextQuality } from "@/lib/extraction/textQuality";
+import { GeminiExtractionProvider } from "@/lib/extraction/geminiExtractionProvider";
+import { normalizeProfile as defaultNormalizeProfile, InvalidExtractionError } from "@/lib/extraction/normalizeProfile";
+import {
+  studentProfileRepository,
+  type StudentProfileRepository,
+} from "@/lib/db/repositories/studentProfileRepository";
+import type { ExtractionProvider } from "@/lib/extraction/extractionProvider";
 import { logger } from "@/lib/logger";
 import type { DocumentProcessingJobPayload } from "@/lib/queue/jobTypes";
 
+const RESUME_PROMPT_VERSION = "resume-extraction-v1";
+
 type ProcessResumeDeps = {
   resumes: Pick<ResumeRepository, "get" | "updateStatus">;
+  studentProfiles: Pick<StudentProfileRepository, "save">;
   downloadFile: typeof s3DownloadFile;
   extractPdfText: typeof defaultExtractPdfText;
   extractDocxText: typeof defaultExtractDocxText;
   checkTextQuality: typeof defaultCheckTextQuality;
+  extractionProvider: ExtractionProvider;
+  normalizeProfile: typeof defaultNormalizeProfile;
 };
 
 const defaultDeps: ProcessResumeDeps = {
   resumes: resumeRepository,
+  studentProfiles: studentProfileRepository,
   downloadFile: s3DownloadFile,
   extractPdfText: defaultExtractPdfText,
   extractDocxText: defaultExtractDocxText,
   checkTextQuality: defaultCheckTextQuality,
+  extractionProvider: new GeminiExtractionProvider(),
+  normalizeProfile: defaultNormalizeProfile,
 };
 
 /**
- * buildPlan.md §17/§59, stopping at EXTRACTED — see
- * docs/agent-artifacts/07-resume-worker/spec.md for why LLM structuring
- * (§19, feature #8) is not part of this function yet.
+ * buildPlan.md §17/§59: UPLOADED->EXTRACTING->EXTRACTED->STRUCTURING->
+ * VALIDATING->READY. Stops before INDEXING (embeddings, feature #14) —
+ * see docs/agent-artifacts/08-llm-extraction/spec.md.
  */
 export async function processResumeJob(
   resumeId: string,
@@ -57,6 +72,33 @@ export async function processResumeJob(
     }
 
     await deps.resumes.updateStatus(resumeId, "EXTRACTED");
+
+    await deps.resumes.updateStatus(resumeId, "STRUCTURING");
+    const raw = await deps.extractionProvider.extractResume(text, RESUME_PROMPT_VERSION);
+
+    await deps.resumes.updateStatus(resumeId, "VALIDATING");
+    let profile;
+    try {
+      profile = deps.normalizeProfile(raw, {
+        studentId: resume.studentId,
+        resumeId,
+        sourceText: text,
+        model: deps.extractionProvider.modelId,
+        promptVersion: RESUME_PROMPT_VERSION,
+      });
+    } catch (error) {
+      if (error instanceof InvalidExtractionError) {
+        await deps.resumes.updateStatus(resumeId, "FAILED", {
+          code: "INVALID_EXTRACTION",
+          message: error.message,
+        });
+        return;
+      }
+      throw error;
+    }
+
+    await deps.studentProfiles.save(profile, { markActive: true });
+    await deps.resumes.updateStatus(resumeId, "READY");
   } catch (error) {
     await deps.resumes.updateStatus(resumeId, "FAILED", {
       code: "EXTRACTION_ERROR",
