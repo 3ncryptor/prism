@@ -1,4 +1,5 @@
 import { normalizeProfile, InvalidExtractionError } from "@/lib/extraction/normalizeProfile";
+import type { SkillTaxonomyEntry } from "@/lib/schemas/skillTaxonomy";
 
 const SOURCE_TEXT = `
 John Doe
@@ -6,12 +7,27 @@ Built REST APIs using Node.js and Express for a course project.
 Education: B.Tech Computer Science, XYZ University, 2020-2024, CGPA 8.5.
 `;
 
+const TAXONOMY: SkillTaxonomyEntry[] = [
+  {
+    _id: "taxonomy-1",
+    canonicalName: "node.js",
+    displayName: "Node.js",
+    category: "FRAMEWORK",
+    aliases: ["nodejs", "node"],
+    isActive: true,
+    createdBy: "admin-1",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
+
 const CONTEXT = {
   studentId: "student-1",
   resumeId: "resume-1",
   sourceText: SOURCE_TEXT,
   model: "gemini-2.0-flash",
   promptVersion: "resume-extraction-v1",
+  skillTaxonomy: TAXONOMY,
 };
 
 function validRawExtraction(overrides: Record<string, unknown> = {}) {
@@ -63,10 +79,28 @@ describe("normalizeProfile", () => {
     expect(names).not.toContain("Photoshop");
   });
 
-  it("canonicalizes skill names to lowercase/trimmed form", () => {
+  it("canonicalizes a skill name via a taxonomy alias match", () => {
     const profile = normalizeProfile(validRawExtraction(), CONTEXT);
 
-    expect(profile.skills[0].canonicalName).toBe("nodejs");
+    expect(profile.skills[0].canonicalName).toBe("node.js");
+  });
+
+  it("falls back to a trimmed/lowercased form for a skill not in the taxonomy", () => {
+    const profile = normalizeProfile(
+      validRawExtraction({
+        skills: [
+          {
+            name: "Rust",
+            canonicalName: "  Rust  ",
+            category: "LANGUAGE",
+            evidence: ["Built REST APIs using Node.js and Express"],
+          },
+        ],
+      }),
+      CONTEXT,
+    );
+
+    expect(profile.skills[0].canonicalName).toBe("rust");
   });
 
   it("sets studentId/resumeId/isActive/profileVersion and extraction metadata", () => {

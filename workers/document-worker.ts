@@ -15,6 +15,10 @@ import {
 } from "@/lib/db/repositories/studentProfileRepository";
 import { jobRepository, type JobRepository } from "@/lib/db/repositories/jobRepository";
 import {
+  skillTaxonomyRepository,
+  type SkillTaxonomyRepository,
+} from "@/lib/db/repositories/skillTaxonomyRepository";
+import {
   jobProfileRepository,
   type JobProfileRepository,
 } from "@/lib/db/repositories/jobProfileRepository";
@@ -31,6 +35,7 @@ const JD_PROMPT_VERSION = "jd-extraction-v1";
 type ProcessResumeDeps = {
   resumes: Pick<ResumeRepository, "get" | "updateStatus">;
   studentProfiles: Pick<StudentProfileRepository, "save">;
+  skillTaxonomy: Pick<SkillTaxonomyRepository, "listActive">;
   downloadFile: typeof s3DownloadFile;
   extractPdfText: typeof defaultExtractPdfText;
   extractDocxText: typeof defaultExtractDocxText;
@@ -42,6 +47,7 @@ type ProcessResumeDeps = {
 const defaultDeps: ProcessResumeDeps = {
   resumes: resumeRepository,
   studentProfiles: studentProfileRepository,
+  skillTaxonomy: skillTaxonomyRepository,
   downloadFile: s3DownloadFile,
   extractPdfText: defaultExtractPdfText,
   extractDocxText: defaultExtractDocxText,
@@ -109,6 +115,7 @@ export async function processResumeJob(
     const raw = await deps.extractionProvider.extractResume(text, RESUME_PROMPT_VERSION);
 
     await deps.resumes.updateStatus(resumeId, "VALIDATING");
+    const skillTaxonomy = await deps.skillTaxonomy.listActive();
     let profile;
     try {
       profile = deps.normalizeProfile(raw, {
@@ -117,6 +124,7 @@ export async function processResumeJob(
         sourceText: text,
         model: deps.extractionProvider.modelId,
         promptVersion: RESUME_PROMPT_VERSION,
+        skillTaxonomy,
       });
     } catch (error) {
       if (error instanceof InvalidExtractionError) {

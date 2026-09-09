@@ -49,6 +49,9 @@ function baseDeps() {
     studentProfiles: {
       save: jest.fn().mockResolvedValue({ ...makeProfile(), _id: "profile-1" }),
     },
+    skillTaxonomy: {
+      listActive: jest.fn().mockResolvedValue([]),
+    },
     downloadFile: jest.fn().mockResolvedValue(Buffer.from("irrelevant")),
     extractPdfText: jest.fn().mockResolvedValue("realistic long resume text ".repeat(10)),
     extractDocxText: jest.fn().mockResolvedValue("realistic long resume text ".repeat(10)),

@@ -12,4 +12,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
   await db.collection("jobs").createIndex({ publishedMatchRunId: 1 });
 
   await db.collection("jobProfiles").createIndex({ jobId: 1 }, { unique: true });
+
+  await db.collection("skillTaxonomy").createIndex({ canonicalName: 1 }, { unique: true });
+  await db.collection("skillTaxonomy").createIndex({ isActive: 1 });
 }

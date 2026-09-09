@@ -10,6 +10,8 @@ import {
   type StudentProfile,
 } from "@/lib/schemas/studentProfile";
 import { verifyEvidence } from "@/lib/extraction/evidenceVerifier";
+import { canonicalizeSkillName } from "@/lib/services/skillTaxonomyService";
+import type { SkillTaxonomyEntry } from "@/lib/schemas/skillTaxonomy";
 
 export class InvalidExtractionError extends Error {
   constructor(message: string) {
@@ -49,6 +51,7 @@ export interface NormalizeContext {
   sourceText: string;
   model: string;
   promptVersion: string;
+  skillTaxonomy: SkillTaxonomyEntry[];
 }
 
 /** buildPlan.md §15: Zod validation -> normalization -> profile validation. */
@@ -66,11 +69,9 @@ export function normalizeProfile(raw: unknown, context: NormalizeContext): Stude
   const certifications = keepVerifiedClaims(data.certifications, context.sourceText);
   const achievements = keepVerifiedClaims(data.achievements, context.sourceText);
 
-  // Feature #13 (skill taxonomy) replaces this with real canonicalization;
-  // for now, a plain normalized form so downstream matching has *something*.
   const canonicalizedSkills = skills.map((skill) => ({
     ...skill,
-    canonicalName: skill.canonicalName.trim().toLowerCase(),
+    canonicalName: canonicalizeSkillName(skill.canonicalName, context.skillTaxonomy),
   }));
 
   const totalExperienceMonths = data.experience.reduce(

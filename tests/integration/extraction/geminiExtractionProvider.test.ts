@@ -36,6 +36,7 @@ maybeDescribe("GeminiExtractionProvider (real Gemini API)", () => {
       sourceText: SAMPLE_RESUME_TEXT,
       model: provider.modelId,
       promptVersion: "resume-extraction-v1",
+      skillTaxonomy: [],
     });
 
     // The LLM's exact picks can vary run to run; assert on structure and
