@@ -1,0 +1,38 @@
+[
+  {
+    "resumeFile": "student-strong-ml.json",
+    "jobFile": "job-ml-engineer.json",
+    "expectedBucket": "BEST_FIT",
+    "expectedSkills": ["python", "django", "machine learning", "sql"]
+  },
+  {
+    "resumeFile": "student-strong-ml.json",
+    "jobFile": "job-frontend-developer.json",
+    "expectedBucket": "LOW_FIT",
+    "expectedSkills": []
+  },
+  {
+    "resumeFile": "student-weak-frontend.json",
+    "jobFile": "job-ml-engineer.json",
+    "expectedBucket": "LOW_FIT",
+    "expectedSkills": []
+  },
+  {
+    "resumeFile": "student-weak-frontend.json",
+    "jobFile": "job-frontend-developer.json",
+    "expectedBucket": "BEST_FIT",
+    "expectedSkills": ["javascript", "react", "css"]
+  },
+  {
+    "resumeFile": "student-partial-ml.json",
+    "jobFile": "job-ml-engineer.json",
+    "expectedBucket": "MODERATE_FIT",
+    "expectedSkills": ["python", "django"]
+  },
+  {
+    "resumeFile": "student-partial-ml.json",
+    "jobFile": "job-frontend-developer.json",
+    "expectedBucket": "LOW_FIT",
+    "expectedSkills": []
+  }
+]

@@ -1,0 +1,48 @@
+{
+  "_id": "eval-student-strong-ml",
+  "studentId": "eval-student-strong-ml",
+  "resumeId": "eval-resume-strong-ml",
+  "isActive": true,
+  "education": [
+    {
+      "degree": "B.Tech",
+      "field": "Computer Science",
+      "institution": "National Institute of Technology",
+      "startYear": 2022,
+      "endYear": 2026,
+      "cgpa": 8.5,
+      "evidence": ["B.Tech, Computer Science, NIT"]
+    }
+  ],
+  "skills": [
+    { "name": "Python", "canonicalName": "python", "category": "LANGUAGE", "evidence": ["Python"] },
+    { "name": "Django", "canonicalName": "django", "category": "FRAMEWORK", "evidence": ["Django"] },
+    { "name": "Machine Learning", "canonicalName": "machine learning", "category": "CONCEPT", "evidence": ["Machine Learning"] },
+    { "name": "SQL", "canonicalName": "sql", "category": "LANGUAGE", "evidence": ["SQL"] }
+  ],
+  "experience": [
+    {
+      "company": "DataCorp",
+      "role": "ML Intern",
+      "description": "Built machine learning pipelines for classification tasks using Python.",
+      "responsibilities": ["Built ML pipelines", "Deployed models as REST APIs"],
+      "technologies": ["Python", "scikit-learn", "Django"],
+      "duration": { "start": "2025-01", "end": "2025-06" },
+      "months": 6
+    }
+  ],
+  "projects": [],
+  "certifications": [],
+  "achievements": [],
+  "coursework": [],
+  "languages": ["English"],
+  "totalExperienceMonths": 6,
+  "profileVersion": 1,
+  "extractionMetadata": {
+    "model": "synthetic-fixture",
+    "promptVersion": "n/a",
+    "extractedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

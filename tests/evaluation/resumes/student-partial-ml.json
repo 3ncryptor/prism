@@ -1,0 +1,46 @@
+{
+  "_id": "eval-student-partial-ml",
+  "studentId": "eval-student-partial-ml",
+  "resumeId": "eval-resume-partial-ml",
+  "isActive": true,
+  "education": [
+    {
+      "degree": "B.Tech",
+      "field": "Computer Science",
+      "institution": "ABC College of Engineering",
+      "startYear": 2022,
+      "endYear": 2026,
+      "cgpa": 7.0,
+      "evidence": ["B.Tech, Computer Science, ABC"]
+    }
+  ],
+  "skills": [
+    { "name": "Python", "canonicalName": "python", "category": "LANGUAGE", "evidence": ["Python"] },
+    { "name": "Django", "canonicalName": "django", "category": "FRAMEWORK", "evidence": ["Django"] }
+  ],
+  "experience": [
+    {
+      "company": "WebWorks",
+      "role": "Backend Intern",
+      "description": "Built REST APIs in Django.",
+      "responsibilities": ["Built REST APIs"],
+      "technologies": ["Python", "Django"],
+      "duration": { "start": "2025-06", "end": "2025-10" },
+      "months": 4
+    }
+  ],
+  "projects": [],
+  "certifications": [],
+  "achievements": [],
+  "coursework": [],
+  "languages": ["English"],
+  "totalExperienceMonths": 4,
+  "profileVersion": 1,
+  "extractionMetadata": {
+    "model": "synthetic-fixture",
+    "promptVersion": "n/a",
+    "extractedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

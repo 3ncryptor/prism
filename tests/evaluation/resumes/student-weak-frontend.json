@@ -1,0 +1,37 @@
+{
+  "_id": "eval-student-weak-frontend",
+  "studentId": "eval-student-weak-frontend",
+  "resumeId": "eval-resume-weak-frontend",
+  "isActive": true,
+  "education": [
+    {
+      "degree": "B.Tech",
+      "field": "Computer Science",
+      "institution": "XYZ Institute of Technology",
+      "startYear": 2022,
+      "endYear": 2026,
+      "cgpa": 7.0,
+      "evidence": ["B.Tech, Computer Science, XYZ"]
+    }
+  ],
+  "skills": [
+    { "name": "JavaScript", "canonicalName": "javascript", "category": "LANGUAGE", "evidence": ["JavaScript"] },
+    { "name": "React", "canonicalName": "react", "category": "FRAMEWORK", "evidence": ["React"] },
+    { "name": "CSS", "canonicalName": "css", "category": "LANGUAGE", "evidence": ["CSS"] }
+  ],
+  "experience": [],
+  "projects": [],
+  "certifications": [],
+  "achievements": [],
+  "coursework": [],
+  "languages": ["English"],
+  "totalExperienceMonths": 0,
+  "profileVersion": 1,
+  "extractionMetadata": {
+    "model": "synthetic-fixture",
+    "promptVersion": "n/a",
+    "extractedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

@@ -1,0 +1,19 @@
+{
+  "_id": "eval-job-frontend-developer",
+  "jobId": "eval-job-frontend-developer",
+  "title": "Frontend Developer",
+  "company": "Eval Corp",
+  "requiredSkills": [
+    { "name": "javascript", "canonicalName": "javascript", "category": "LANGUAGE", "importance": "MANDATORY" },
+    { "name": "react", "canonicalName": "react", "category": "FRAMEWORK", "importance": "HIGH" }
+  ],
+  "preferredSkills": [
+    { "name": "css", "canonicalName": "css", "category": "LANGUAGE", "importance": "MEDIUM" }
+  ],
+  "responsibilities": [],
+  "constraints": [],
+  "semanticRequirements": [],
+  "profileVersion": 1,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

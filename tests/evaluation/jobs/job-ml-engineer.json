@@ -1,0 +1,24 @@
+{
+  "_id": "eval-job-ml-engineer",
+  "jobId": "eval-job-ml-engineer",
+  "title": "Machine Learning Engineer",
+  "company": "Eval Corp",
+  "requiredSkills": [
+    { "name": "python", "canonicalName": "python", "category": "LANGUAGE", "importance": "MANDATORY" },
+    { "name": "django", "canonicalName": "django", "category": "FRAMEWORK", "importance": "HIGH" },
+    { "name": "machine learning", "canonicalName": "machine learning", "category": "CONCEPT", "importance": "HIGH" }
+  ],
+  "preferredSkills": [
+    { "name": "sql", "canonicalName": "sql", "category": "LANGUAGE", "importance": "MEDIUM" }
+  ],
+  "responsibilities": [],
+  "requiredExperience": { "minMonths": 3, "domain": "machine learning", "disqualifying": false },
+  "educationRequirements": [
+    { "degree": ["B.Tech", "B.E."], "field": ["Computer Science"], "minCgpa": 6.0, "disqualifying": true }
+  ],
+  "constraints": [],
+  "semanticRequirements": [],
+  "profileVersion": 1,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}
