@@ -1,91 +1,79 @@
-import { z } from "zod";
-
-const envSchema = z
-  .object({
-    MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
-    REDIS_URL: z.string().min(1, "REDIS_URL is required"),
-    QDRANT_URL: z.string().min(1, "QDRANT_URL is required"),
-    QDRANT_API_KEY: z.string().optional(),
-
-    S3_ENDPOINT: z.string().optional(),
-    S3_BUCKET: z.string().min(1, "S3_BUCKET is required"),
-    S3_ACCESS_KEY: z.string().min(1, "S3_ACCESS_KEY is required"),
-    S3_SECRET_KEY: z.string().min(1, "S3_SECRET_KEY is required"),
-
-    EXTRACTION_PROVIDER: z.enum(["gemini", "claude"]),
-    EMBEDDING_PROVIDER: z.enum(["gemini", "openai"]),
-    GEMINI_API_KEY: z.string().optional(),
-    ANTHROPIC_API_KEY: z.string().optional(),
-    OPENAI_API_KEY: z.string().optional(),
-
-    AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
-  })
-  .superRefine((env, ctx) => {
-    const requireKey = (
-      condition: boolean,
-      key: "GEMINI_API_KEY" | "ANTHROPIC_API_KEY" | "OPENAI_API_KEY",
-      because: string,
-    ) => {
-      if (condition && !env[key]) {
-        ctx.addIssue({
-          code: "custom",
-          path: [key],
-          message: `${key} is required because ${because}`,
-        });
-      }
-    };
-
-    requireKey(
-      env.EXTRACTION_PROVIDER === "gemini",
-      "GEMINI_API_KEY",
-      "EXTRACTION_PROVIDER=gemini",
-    );
-    requireKey(
-      env.EXTRACTION_PROVIDER === "claude",
-      "ANTHROPIC_API_KEY",
-      "EXTRACTION_PROVIDER=claude",
-    );
-    requireKey(
-      env.EMBEDDING_PROVIDER === "gemini",
-      "GEMINI_API_KEY",
-      "EMBEDDING_PROVIDER=gemini",
-    );
-    requireKey(
-      env.EMBEDDING_PROVIDER === "openai",
-      "OPENAI_API_KEY",
-      "EMBEDDING_PROVIDER=openai",
-    );
-  });
-
-export type Env = z.infer<typeof envSchema>;
-
-let cachedEnv: Env | null = null;
-
 /**
- * Validates process.env against the required Prism configuration surface.
- * Lazy by design (buildPlan.md §115 config layer, edge case in
- * docs/agent-artifacts/01-project-foundation/spec.md): must not run at
- * module-import time, since Next.js evaluates some modules during
- * `next build`, which should not require production secrets to exist.
+ * Scoped env accessors: each function validates only the variable(s) it
+ * actually needs, so a feature that only touches Mongo (e.g. Auth) isn't
+ * blocked by missing Redis/S3/Qdrant/LLM config it never reads. Lazy by
+ * design — nothing here runs at module-import time, so `next build`
+ * doesn't require any secrets to exist (docs/agent-artifacts/
+ * 01-project-foundation/spec.md edge case).
  */
-export function loadEnv(): Env {
-  if (cachedEnv) {
-    return cachedEnv;
-  }
 
-  const result = envSchema.safeParse(process.env);
-  if (!result.success) {
-    const issues = result.error.issues
-      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
-      .join("\n");
-    throw new Error(`Invalid environment configuration:\n${issues}`);
+function requireEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(
+      `Missing required environment variable: ${key}. See .env.example.`,
+    );
   }
-
-  cachedEnv = result.data;
-  return cachedEnv;
+  return value;
 }
 
-/** Test-only escape hatch to force re-validation against a mutated process.env. */
-export function resetEnvCacheForTests(): void {
-  cachedEnv = null;
+export function getMongoUri(): string {
+  return requireEnv("MONGODB_URI");
+}
+
+export function getRedisUrl(): string {
+  return requireEnv("REDIS_URL");
+}
+
+export function getQdrantConfig(): { url: string; apiKey?: string } {
+  return { url: requireEnv("QDRANT_URL"), apiKey: process.env.QDRANT_API_KEY };
+}
+
+export function getS3Config(): {
+  endpoint?: string;
+  bucket: string;
+  accessKey: string;
+  secretKey: string;
+} {
+  return {
+    endpoint: process.env.S3_ENDPOINT,
+    bucket: requireEnv("S3_BUCKET"),
+    accessKey: requireEnv("S3_ACCESS_KEY"),
+    secretKey: requireEnv("S3_SECRET_KEY"),
+  };
+}
+
+export type ExtractionProviderName = "gemini" | "claude";
+export type EmbeddingProviderName = "gemini" | "openai";
+
+export function getExtractionProviderName(): ExtractionProviderName {
+  const value = requireEnv("EXTRACTION_PROVIDER");
+  if (value !== "gemini" && value !== "claude") {
+    throw new Error(
+      `EXTRACTION_PROVIDER must be "gemini" or "claude", got "${value}"`,
+    );
+  }
+  return value;
+}
+
+export function getEmbeddingProviderName(): EmbeddingProviderName {
+  const value = requireEnv("EMBEDDING_PROVIDER");
+  if (value !== "gemini" && value !== "openai") {
+    throw new Error(
+      `EMBEDDING_PROVIDER must be "gemini" or "openai", got "${value}"`,
+    );
+  }
+  return value;
+}
+
+export function getGeminiApiKey(): string {
+  return requireEnv("GEMINI_API_KEY");
+}
+
+export function getAnthropicApiKey(): string {
+  return requireEnv("ANTHROPIC_API_KEY");
+}
+
+export function getOpenAiApiKey(): string {
+  return requireEnv("OPENAI_API_KEY");
 }
