@@ -1,12 +1,14 @@
-import { NSChip, NSTypography } from "@newtonschool/grauity";
+import { Typography } from "@/lib/ui/Typography";
+import { Badge } from "@/lib/ui/Badge";
 import type { StudentProfile } from "@/lib/schemas/studentProfile";
 import { groupSkillsByCategory } from "@/app/student/skillCategoryLabels";
-import { MUTED_TEXT_COLOR } from "@/app/student/theme";
+import { MUTED_TEXT_COLOR } from "@/lib/designTokens";
 
 interface ProfileSummaryProps {
   profile: StudentProfile;
 }
 
+/** buildPlan.md §120 (feature 27m): migrated off Grauity's NSChip/NSTypography onto lib/ui. */
 export function ProfileSummary({ profile }: ProfileSummaryProps) {
   const skillGroups = groupSkillsByCategory(profile.skills);
 
@@ -14,20 +16,18 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
     <div className="flex flex-col gap-6">
       {skillGroups.length > 0 && (
         <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Skills
-          </NSTypography>
+          <Typography variant="h3">Skills</Typography>
           <div className="flex flex-col gap-3">
             {skillGroups.map(([label, skills]) => (
               <div key={label} className="flex flex-col gap-2">
-                <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+                <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                   {label}
-                </NSTypography>
+                </Typography>
                 <div className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
-                    <NSChip key={skill.canonicalName} variant="brand">
+                    <Badge key={skill.canonicalName} tone="brand">
                       {skill.name}
-                    </NSChip>
+                    </Badge>
                   ))}
                 </div>
               </div>
@@ -38,23 +38,19 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
 
       {profile.projects.length > 0 && (
         <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Projects
-          </NSTypography>
+          <Typography variant="h3">Projects</Typography>
           {profile.projects.map((project) => (
             <div key={project.title} className="flex flex-col gap-1">
-              <NSTypography variant="paragraph-sb-p2" as="h3">
+              <Typography variant="body" as="h4" className="font-semibold">
                 {project.title}
-              </NSTypography>
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                {project.description}
-              </NSTypography>
+              </Typography>
+              <Typography variant="caption">{project.description}</Typography>
               {project.technologies.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {project.technologies.map((tech) => (
-                    <NSChip key={tech} variant="brand" size="small">
+                    <Badge key={tech} tone="brand">
                       {tech}
-                    </NSChip>
+                    </Badge>
                   ))}
                 </div>
               )}
@@ -65,17 +61,13 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
 
       {profile.experience.length > 0 && (
         <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Experience
-          </NSTypography>
+          <Typography variant="h3">Experience</Typography>
           {profile.experience.map((exp) => (
             <div key={`${exp.company}-${exp.role}`} className="flex flex-col gap-1">
-              <NSTypography variant="paragraph-sb-p2" as="h3">
+              <Typography variant="body" as="h4" className="font-semibold">
                 {exp.role} · {exp.company}
-              </NSTypography>
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                {exp.description}
-              </NSTypography>
+              </Typography>
+              <Typography variant="caption">{exp.description}</Typography>
             </div>
           ))}
         </div>
@@ -83,18 +75,16 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
 
       {profile.education.length > 0 && (
         <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Education
-          </NSTypography>
+          <Typography variant="h3">Education</Typography>
           {profile.education.map((edu) => (
             <div key={`${edu.institution}-${edu.degree}`} className="flex flex-col gap-1">
-              <NSTypography variant="paragraph-sb-p2" as="h3">
+              <Typography variant="body" as="h4" className="font-semibold">
                 {edu.degree}, {edu.field}
-              </NSTypography>
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+              </Typography>
+              <Typography variant="caption">
                 {edu.institution}
                 {edu.cgpa != null ? ` · CGPA ${edu.cgpa}` : ""}
-              </NSTypography>
+              </Typography>
             </div>
           ))}
         </div>
@@ -102,14 +92,12 @@ export function ProfileSummary({ profile }: ProfileSummaryProps) {
 
       {profile.certifications.length > 0 && (
         <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Certifications
-          </NSTypography>
+          <Typography variant="h3">Certifications</Typography>
           <div className="flex flex-wrap gap-2">
             {profile.certifications.map((cert) => (
-              <NSChip key={cert.name} variant="purple">
+              <Badge key={cert.name} tone="neutral">
                 {cert.name}
-              </NSChip>
+              </Badge>
             ))}
           </div>
         </div>

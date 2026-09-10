@@ -2,26 +2,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { Resume } from "@/lib/schemas/resume";
 import type { StudentProfile } from "@/lib/schemas/studentProfile";
 import type { JobRoleTaxonomyEntry } from "@/lib/schemas/jobRoleTaxonomy";
-import { resumeStatusColor, resumeStatusLabel } from "@/app/student/resumeStatusDisplay";
-import { MUTED_TEXT_COLOR } from "@/app/student/theme";
+import { resumeStatusColor, resumeStatusLabel, humanizeResumeFailure } from "@/app/student/resumeStatusDisplay";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
 import { EmptyState } from "@/lib/layout/EmptyState";
 import { ProfileSummary } from "@/app/student/ProfileSummary";
+import { Typography } from "@/lib/ui/Typography";
+import { Input } from "@/lib/ui/Input";
+import { Select } from "@/lib/ui/Select";
+import { Button } from "@/lib/ui/Button";
+import { Badge } from "@/lib/ui/Badge";
+import { Checkbox } from "@/lib/ui/Checkbox";
+import { useStagger } from "@/lib/motion/useStagger";
+import { getRoleColor } from "@/lib/designTokens";
 
 const ACCEPTED_EXTENSIONS = ".pdf,.docx";
 const POLL_INTERVAL_MS = 4000;
 
 /**
- * docs/screens.md §4.6 (feature 27d). Upload always adds a new resume;
- * "Published for matching" is the student's own explicit choice — turning
- * one on turns any other off (single-active invariant kept until 27e's
- * role-based routing allows more than one published resume at once, per
- * lib/services/resumeService.ts's setResumePublishStatus).
+ * docs/screens.md §4.6 (feature 27d), visual/motion pass in §8.6 (feature
+ * 27m). Upload always adds a new resume; "Published for matching" is the
+ * student's own explicit choice — turning one on turns any other off
+ * (single-active invariant kept until 27e's role-based routing allows more
+ * than one published resume at once, per lib/services/resumeService.ts's
+ * setResumePublishStatus).
  */
 export function ResumesPageContent() {
   const searchParams = useSearchParams();
@@ -40,6 +47,7 @@ export function ResumesPageContent() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Record<string, StudentProfile | null>>({});
   const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
+  const listRef = useStagger<HTMLDivElement>([resumes.length]);
 
   async function refreshResumes() {
     const response = await fetch("/api/resumes");
@@ -167,115 +175,114 @@ export function ResumesPageContent() {
       <PageHeader title="Resumes" />
 
       <Card as="form" onSubmit={handleUpload} className="flex flex-col gap-3 bg-gray-50">
-        <NSTypography variant="heading-sb-h4" as="h2">
-          Upload a new resume
-        </NSTypography>
+        <Typography variant="h3">Upload a new resume</Typography>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <NSTextField
-            name="label"
-            label="Label"
-            placeholder='e.g. "Data Science Resume"'
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
+          <label className="flex flex-col gap-1 text-sm text-gray-700">
+            Label
+            <Input
+              name="label"
+              placeholder='e.g. "Data Science Resume"'
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+          </label>
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Job role
-            <select
-              className="rounded border border-gray-300 px-3 py-2"
-              value={jobRole}
-              onChange={(e) => setJobRole(e.target.value)}
-            >
+            <Select value={jobRole} onChange={(e) => setJobRole(e.target.value)}>
               <option value="">No specific role — general resume</option>
               {roles.map((role) => (
                 <option key={role._id} value={role.canonicalName}>
                   {role.displayName}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS} className="text-sm" />
-          <NSButton type="submit" variant="primary" loading={isUploading}>
-            Upload resume
-          </NSButton>
+          <Button type="submit" disabled={isUploading}>
+            {isUploading ? "Uploading…" : "Upload resume"}
+          </Button>
         </div>
-        {uploadError && <NSAlert variant="error" icon={null} description={uploadError} />}
+        {uploadError && (
+          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {uploadError}
+          </p>
+        )}
       </Card>
 
-      {actionError && <NSAlert variant="error" icon={null} description={actionError} />}
+      {actionError && (
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {actionError}
+        </p>
+      )}
 
       {!isLoading && resumes.length === 0 && (
         <EmptyState message="No resumes uploaded yet. Upload one above to get started." />
       )}
 
-      <div className="flex flex-col gap-3">
+      <div ref={listRef} className="flex flex-col gap-3">
         {resumes.map((resume) => {
           const isReady = resume.status === "READY";
           const isFailed = resume.status === "FAILED";
+          const roleColor = resume.jobRole ? getRoleColor(resume.jobRole) : null;
+          const roleLabel = resume.jobRole
+            ? (roles.find((r) => r.canonicalName === resume.jobRole)?.displayName ?? resume.jobRole)
+            : "General resume";
           return (
             <Card key={resume._id} className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <NSTypography variant="paragraph-sb-p2" as="h3">
+                <Typography variant="body" as="h3" className="font-semibold">
                   {resume.label}
-                </NSTypography>
-                <NSPill color={resumeStatusColor(resume.status)} isActive>
-                  {resumeStatusLabel(resume.status)}
-                </NSPill>
+                </Typography>
+                <Badge tone={resumeStatusColor(resume.status)}>{resumeStatusLabel(resume.status)}</Badge>
               </div>
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                {resume.originalName} · Role:{" "}
-                {resume.jobRole
-                  ? (roles.find((r) => r.canonicalName === resume.jobRole)?.displayName ?? resume.jobRole)
-                  : "General resume"}
-              </NSTypography>
+              <div className="flex items-center gap-2">
+                <Typography variant="caption">{resume.originalName}</Typography>
+                {roleColor ? (
+                  <Badge tone="neutral" style={{ backgroundColor: roleColor.bg, color: roleColor.text }}>
+                    {roleLabel}
+                  </Badge>
+                ) : (
+                  <Typography variant="caption">· {roleLabel}</Typography>
+                )}
+              </div>
 
               {isFailed && (
-                <NSAlert
-                  variant="error"
-                  icon={null}
-                  description={resume.error?.message ?? "We couldn't process this resume."}
-                />
+                <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {humanizeResumeFailure(resume.error)}
+                </p>
               )}
 
               <div className="flex items-center gap-3 pt-1">
                 <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={resume.isActive}
                     disabled={!isReady || togglingId === resume._id}
                     onChange={() => handleTogglePublish(resume)}
                   />
                   Published for matching
                 </label>
-                {!isReady && !isFailed && (
-                  <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                    (publish toggle disabled until ready)
-                  </NSTypography>
-                )}
+                {!isReady && !isFailed && <Typography variant="caption">(publish toggle disabled until ready)</Typography>}
               </div>
 
               {isReady && (
                 <div className="flex gap-3 pt-1">
-                  <NSButton variant="tertiary" size="small" onClick={() => handleToggleProfile(resume._id)}>
+                  <Button variant="ghost" size="sm" onClick={() => handleToggleProfile(resume._id)}>
                     {expandedId === resume._id ? "Hide parsed profile" : "View parsed profile"}
-                  </NSButton>
-                  <NSButton variant="tertiary" size="small" onClick={() => handleViewFile(resume._id)}>
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleViewFile(resume._id)}>
                     View file
-                  </NSButton>
+                  </Button>
                 </div>
               )}
 
               {expandedId === resume._id && (
                 <div className="pt-2">
                   {loadingProfileId === resume._id ? (
-                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                      Loading…
-                    </NSTypography>
+                    <Typography variant="caption">Loading…</Typography>
                   ) : profiles[resume._id] ? (
                     <ProfileSummary profile={profiles[resume._id] as StudentProfile} />
                   ) : (
-                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                      No parsed profile available.
-                    </NSTypography>
+                    <Typography variant="caption">No parsed profile available.</Typography>
                   )}
                 </div>
               )}

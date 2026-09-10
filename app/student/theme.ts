@@ -1,1 +1,1 @@
-export { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+export { MUTED_TEXT_COLOR } from "@/lib/designTokens";
