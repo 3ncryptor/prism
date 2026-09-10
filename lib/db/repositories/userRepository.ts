@@ -8,6 +8,13 @@ export interface UserDocument {
   name: string;
   role: UserRole;
   passwordHash: string;
+  phone?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  rollNumber?: string;
+  branch?: string;
+  batchYear?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +26,13 @@ function toUser(doc: UserDocument): User {
     name: doc.name,
     role: doc.role,
     passwordHash: doc.passwordHash,
+    phone: doc.phone,
+    linkedinUrl: doc.linkedinUrl,
+    githubUrl: doc.githubUrl,
+    portfolioUrl: doc.portfolioUrl,
+    rollNumber: doc.rollNumber,
+    branch: doc.branch,
+    batchYear: doc.batchYear,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -88,6 +102,30 @@ export class UserRepository {
       throw new Error(`upsertByEmail failed to return a document for ${input.email}`);
     }
     return toUser(result);
+  }
+
+  /** docs/screens.md §4.8 (feature 27f). */
+  async updateProfile(
+    userId: string,
+    patch: Partial<
+      Pick<User, "name" | "phone" | "linkedinUrl" | "githubUrl" | "portfolioUrl" | "rollNumber" | "branch" | "batchYear">
+    >,
+  ): Promise<User | null> {
+    const collection = await this.getCollection();
+    const result = await collection.findOneAndUpdate(
+      { _id: new ObjectId(userId) },
+      { $set: { ...patch, updatedAt: new Date() } },
+      { returnDocument: "after" },
+    );
+    return result ? toUser(result) : null;
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.findOneAndUpdate(
+      { _id: new ObjectId(userId) },
+      { $set: { passwordHash, updatedAt: new Date() } },
+    );
   }
 }
 
