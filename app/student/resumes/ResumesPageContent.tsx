@@ -15,7 +15,7 @@ import { Input } from "@/lib/ui/Input";
 import { Select } from "@/lib/ui/Select";
 import { Button } from "@/lib/ui/Button";
 import { Badge } from "@/lib/ui/Badge";
-import { Checkbox } from "@/lib/ui/Checkbox";
+import { Toggle } from "@/lib/ui/Toggle";
 import { useStagger } from "@/lib/motion/useStagger";
 import { getRoleColor } from "@/lib/designTokens";
 
@@ -176,8 +176,8 @@ export function ResumesPageContent() {
 
       <Card as="form" onSubmit={handleUpload} className="flex flex-col gap-3 bg-gray-50">
         <Typography variant="h3">Upload a new resume</Typography>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm text-gray-700">
             Label
             <Input
               name="label"
@@ -186,7 +186,7 @@ export function ResumesPageContent() {
               onChange={(e) => setLabel(e.target.value)}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-gray-700">
+          <label className="flex min-w-[200px] flex-1 flex-col gap-1 text-sm text-gray-700">
             Job role
             <Select value={jobRole} onChange={(e) => setJobRole(e.target.value)}>
               <option value="">No specific role — general resume</option>
@@ -197,8 +197,8 @@ export function ResumesPageContent() {
               ))}
             </Select>
           </label>
-          <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS} className="text-sm" />
-          <Button type="submit" disabled={isUploading}>
+          <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS} className="max-w-full text-sm" />
+          <Button type="submit" disabled={isUploading} className="shrink-0">
             {isUploading ? "Uploading…" : "Upload resume"}
           </Button>
         </div>
@@ -253,23 +253,22 @@ export function ResumesPageContent() {
               )}
 
               <div className="flex items-center gap-3 pt-1">
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <Checkbox
-                    checked={resume.isActive}
-                    disabled={!isReady || togglingId === resume._id}
-                    onChange={() => handleTogglePublish(resume)}
-                  />
-                  Published for matching
-                </label>
+                <span className="text-sm text-gray-700">Published for matching</span>
+                <Toggle
+                  checked={resume.isActive}
+                  disabled={!isReady || togglingId === resume._id}
+                  onChange={() => handleTogglePublish(resume)}
+                  label="Published for matching"
+                />
                 {!isReady && !isFailed && <Typography variant="caption">(publish toggle disabled until ready)</Typography>}
               </div>
 
               {isReady && (
                 <div className="flex gap-3 pt-1">
-                  <Button variant="ghost" size="sm" onClick={() => handleToggleProfile(resume._id)}>
+                  <Button variant="outline" size="sm" onClick={() => handleToggleProfile(resume._id)}>
                     {expandedId === resume._id ? "Hide parsed profile" : "View parsed profile"}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleViewFile(resume._id)}>
+                  <Button variant="outline" size="sm" onClick={() => handleViewFile(resume._id)}>
                     View file
                   </Button>
                 </div>

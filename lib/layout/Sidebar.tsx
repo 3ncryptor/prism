@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Typography } from "@/lib/ui/Typography";
+import { Logo } from "@/lib/ui/Logo";
 import { cn } from "@/lib/ui/cn";
 import { useActiveIndicator } from "@/lib/motion/useActiveIndicator";
 
@@ -64,6 +65,9 @@ export function Sidebar({ items }: SidebarProps) {
     // over Tailwind's layered `.flex` utility. `role="navigation"` keeps
     // the same accessibility semantics without hitting that reset.
     <div role="navigation" className="relative flex w-56 shrink-0 flex-col gap-1 border-r border-gray-200 bg-gray-50 p-4">
+      <div className="mb-4 px-3">
+        <Logo />
+      </div>
       <span
         ref={indicatorRef}
         aria-hidden
