@@ -4655,10 +4655,10 @@ screen-by-screen detail for every item below lives in `docs/screens.md`
 | Item | Status |
 |---|---|
 | 27h. Self-serve signup + email verification | **Shipped** — backend + frontend, unit tested, verified end-to-end live |
-| 27i. Design system foundation | Not started |
-| 27j. Shared layout primitives migration | Not started |
-| 27k. Homepage + auth pages motion/visual pass | Not started (auth pages have functional additions from 27h, not the full motion/visual pass) |
-| 27l. Student dashboard rebuild | Not started |
-| 27m. Student resumes/applications/profile visual pass | Not started |
-| 27n. Admin dashboard (new) | Not started |
-| 27o. Admin jobs/job roles/skill taxonomy/scoring config visual pass | Not started |
+| 27i. Design system foundation | **Shipped** — lib/ui/ (Button, Card, Input, Select, Checkbox, Toggle, Badge, Typography), lib/motion/ GSAP hooks, lib/designTokens.ts |
+| 27j. Shared layout primitives migration | **Shipped** — lib/layout/{Card,StatCard,TopBar,Sidebar,PageHeader,BucketPill,EmptyState} rebuilt on lib/ui |
+| 27k. Homepage + auth pages motion/visual pass | **Shipped** — landing page + all auth pages rebuilt, stacked ScrollTrigger reveals, retrace hero diagram |
+| 27l. Student dashboard rebuild | **Shipped** — lib/services/studentDashboardService.ts, unit tested, verified end-to-end live |
+| 27m. Student resumes/applications/profile visual pass | **Shipped** — Toggle for publish, humanized failure copy, color-as-data role badges, useStagger |
+| 27n. Admin dashboard (new) | **Shipped** — lib/services/adminDashboardService.ts, unit tested, verified end-to-end live; Jobs list moved to /admin/jobs |
+| 27o. Admin jobs/job roles/skill taxonomy/scoring config visual pass | **Shipped** — all admin pages migrated off Grauity; @newtonschool/grauity and styled-components fully removed from the codebase |
