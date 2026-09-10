@@ -44,6 +44,15 @@ type ProcessMatchRunDeps = {
   evaluateMatch: typeof defaultEvaluateMatch;
 };
 
+/**
+ * Bounds how many students are evaluated concurrently within a match run.
+ * High enough to meaningfully cut wall time (each student's own work is
+ * a handful of network round-trips, not CPU-bound), low enough not to
+ * blow past Pinecone/MongoDB connection limits when a run scores the
+ * full active student population at once.
+ */
+const STUDENT_BATCH_SIZE = 10;
+
 const defaultDeps: ProcessMatchRunDeps = {
   matchRuns: matchRunRepository,
   matchResults: matchResultRepository,
@@ -114,31 +123,45 @@ export async function processMatchRun(
 
     const requirementVectors = await deps.embedJobRequirements(jobProfile);
 
-    for (const { profile: student, resumeId } of students) {
-      const retrieval = await deps.retrieveEvidenceForStudent(student.studentId, requirementVectors);
-      const evaluation = deps.evaluateMatch(student, jobProfile, config, retrieval);
+    // Each student's evaluation is fully independent (its own Pinecone
+    // search + two Mongo writes) — processing them one at a time made
+    // total run time scale linearly with the whole active student
+    // population (buildPlan.md §23's "no candidate pre-filter" means this
+    // can be hundreds of students). Bounded-concurrency batches cut wall
+    // time by roughly STUDENT_BATCH_SIZE while keeping a cap on
+    // simultaneous Pinecone/Mongo load — matchResults.upsert is keyed per
+    // (matchRunId, studentId) and incrementProcessed is an atomic $inc, so
+    // concurrent writes within a batch don't race.
+    for (let i = 0; i < students.length; i += STUDENT_BATCH_SIZE) {
+      const batch = students.slice(i, i + STUDENT_BATCH_SIZE);
+      await Promise.all(
+        batch.map(async ({ profile: student, resumeId }) => {
+          const retrieval = await deps.retrieveEvidenceForStudent(student.studentId, requirementVectors);
+          const evaluation = deps.evaluateMatch(student, jobProfile, config, retrieval);
 
-      await deps.matchResults.upsert({
-        matchRunId,
-        studentId: student.studentId,
-        jobId: run.jobId,
-        resumeId,
-        score: evaluation.score,
-        bucket: evaluation.bucket,
-        confidence: evaluation.confidence,
-        eligible: evaluation.eligible,
-        ineligibilityReasons: evaluation.ineligibilityReasons,
-        categoryScores: evaluation.categoryScores,
-        evidence: evaluation.evidence,
-        missingRequirements: evaluation.missingRequirements,
-        scoringConfigVersion: run.scoringConfigVersion,
-        modelVersions: {
-          extraction: run.extractionModelVersion,
-          embedding: run.embeddingModelVersion,
-        },
-        createdAt: new Date(),
-      });
-      await deps.matchRuns.incrementProcessed(matchRunId);
+          await deps.matchResults.upsert({
+            matchRunId,
+            studentId: student.studentId,
+            jobId: run.jobId,
+            resumeId,
+            score: evaluation.score,
+            bucket: evaluation.bucket,
+            confidence: evaluation.confidence,
+            eligible: evaluation.eligible,
+            ineligibilityReasons: evaluation.ineligibilityReasons,
+            categoryScores: evaluation.categoryScores,
+            evidence: evaluation.evidence,
+            missingRequirements: evaluation.missingRequirements,
+            scoringConfigVersion: run.scoringConfigVersion,
+            modelVersions: {
+              extraction: run.extractionModelVersion,
+              embedding: run.embeddingModelVersion,
+            },
+            createdAt: new Date(),
+          });
+          await deps.matchRuns.incrementProcessed(matchRunId);
+        }),
+      );
     }
 
     await deps.matchRuns.complete(matchRunId);

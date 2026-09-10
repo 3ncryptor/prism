@@ -204,4 +204,31 @@ describe("processMatchRun", () => {
       }),
     );
   });
+
+  it("evaluates students concurrently (bounded batches), not one at a time", async () => {
+    // Regression test for the "matching takes too long" bug: the old
+    // implementation awaited retrieveEvidenceForStudent per student in a
+    // strict sequential loop, so total wall time scaled linearly with the
+    // student population. Each student's retrieval call now overlaps with
+    // at least one other student's within the same batch.
+    let concurrentCalls = 0;
+    let maxObservedConcurrency = 0;
+    const students = Array.from({ length: 5 }, (_, i) => makeStudent(`student-${i}`));
+
+    const deps = makeDeps({
+      studentProfiles: { listAllActive: jest.fn().mockResolvedValue(students) },
+      retrieveEvidenceForStudent: jest.fn().mockImplementation(async () => {
+        concurrentCalls += 1;
+        maxObservedConcurrency = Math.max(maxObservedConcurrency, concurrentCalls);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        concurrentCalls -= 1;
+        return new Map();
+      }),
+    });
+
+    await processMatchRun("run-1", deps);
+
+    expect(maxObservedConcurrency).toBeGreaterThan(1);
+    expect(deps.matchResults.upsert).toHaveBeenCalledTimes(5);
+  });
 });
