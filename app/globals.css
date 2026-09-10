@@ -4,8 +4,16 @@
 /*
  * Design system tokens (AGENTS.md §6): grayscale surfaces/text, color
  * reserved for semantic meaning (status/links), never structural chrome.
+ * Prism is a light-only product end to end (every panel hardcodes light
+ * Tailwind classes independent of these vars, and Grauity's own theme is
+ * pinned light — see lib/grauityTheme.ts) — these tokens must never flip
+ * under `prefers-color-scheme`, or `body`'s own background goes dark
+ * underneath light page content on a dark-OS browser, which is exactly
+ * what caused the original "landing/sign-in render as a dark page" bug.
  */
 :root {
+  color-scheme: light;
+
   --background: #ffffff;
   --foreground: #171717;
   --muted: #6b7280;
@@ -30,16 +38,6 @@
   --color-status-info: var(--status-info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --muted: #9ca3af;
-    --border: #27272a;
-    --surface: #18181b;
-  }
 }
 
 body {
