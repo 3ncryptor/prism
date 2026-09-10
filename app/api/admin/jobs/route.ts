@@ -6,14 +6,14 @@ import {
   InvalidFileTypeError,
   FileTooLargeError,
 } from "@/lib/services/jobService";
-import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
+import { checkJdUploadLimit, RateLimitExceededError } from "@/lib/services/rateLimitService";
 import { recordAuditLog } from "@/lib/services/auditLogService";
 import { jobRoleTaxonomyRepository } from "@/lib/db/repositories/jobRoleTaxonomyRepository";
 
 export async function POST(request: Request) {
   try {
     const session = await requireRole("ADMIN");
-    await checkRateLimit(RATE_LIMITS.jdUpload(session.user.id));
+    await checkJdUploadLimit(session.user.id);
 
     const formData = await request.formData();
     const file = formData.get("file");

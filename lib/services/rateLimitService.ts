@@ -1,62 +1,74 @@
-import type IORedis from "ioredis";
-import { getRedisConnection } from "@/lib/queue/connection";
+import { checkTokenBucket } from "@/lib/services/rateLimit/tokenBucket";
+import { checkSlidingWindowLog } from "@/lib/services/rateLimit/slidingWindowLog";
 
-export class RateLimitExceededError extends Error {
-  constructor(
-    public readonly retryAfterSeconds: number,
-  ) {
-    super(`Rate limit exceeded. Try again in ${retryAfterSeconds}s.`);
-    this.name = "RateLimitExceededError";
-  }
-}
-
-export interface RateLimitRule {
-  key: string;
-  limit: number;
-  windowSeconds: number;
-}
-
-type RedisCounter = Pick<IORedis, "incr" | "expire" | "ttl">;
+export { RateLimitExceededError } from "@/lib/services/rateLimit/errors";
 
 /**
- * buildPlan.md §83: fixed-window counter via Redis INCR+EXPIRE, reusing
- * the same connection BullMQ already holds open — no new infra. Not
- * perfectly precise at window boundaries (a caller could burst up to
- * ~2x limit across one), which is an accepted tradeoff for the simplicity
- * of a single atomic INCR versus a sliding-window log for this use case.
+ * Per-endpoint rate limiting, one algorithm per access pattern rather than
+ * one flat fixed-window limiter everywhere — a single generic limiter
+ * either lets real abuse through or blocks legitimate bursty use, depending
+ * which way you tune it.
+ *
+ * - Resume/JD uploads: token bucket. Usage is legitimately bursty (tagging
+ *   resumes for several roles in one sitting; bulk-importing JDs at the
+ *   start of a hiring season) — a burst up to `capacity` is let straight
+ *   through, then throttled to a steady sustained rate. BullMQ's own worker
+ *   concurrency (document-processing: 3, matching: 2) already smooths the
+ *   resulting queue ingestion downstream, so this layer doesn't need to.
+ * - Match run: NOT primarily a rate limiter — see checkMatchRunBurstLimit.
+ * - Forgot password: sliding window log, checked per-email AND per-IP. More
+ *   precise than a fixed window (no boundary double-burst) for a low-volume,
+ *   security-sensitive endpoint, and atomic (single Lua round trip) so it
+ *   can't get stuck locked-out-forever the way a non-atomic INCR+EXPIRE
+ *   pair could if the process died between the two calls.
  */
-export async function checkRateLimit(rule: RateLimitRule, redis: RedisCounter = getRedisConnection()): Promise<void> {
-  const count = await redis.incr(rule.key);
-  if (count === 1) {
-    await redis.expire(rule.key, rule.windowSeconds);
-  }
-  if (count > rule.limit) {
-    const ttl = await redis.ttl(rule.key);
-    throw new RateLimitExceededError(ttl > 0 ? ttl : rule.windowSeconds);
-  }
+
+/** docs/screens.md §4.6 (feature 27d): multi-resume upload, one per job role. */
+export async function checkResumeUploadLimit(studentId: string): Promise<void> {
+  await checkTokenBucket({
+    key: `ratelimit:resume-upload:${studentId}`,
+    capacity: 8,
+    refillRatePerSecond: 1 / 300, // 1 token per 5 min → ~12/hour sustained
+  });
 }
 
-/** buildPlan.md §83's explicit protected-action list. */
-export const RATE_LIMITS = {
-  resumeUpload: (studentId: string): RateLimitRule => ({
-    key: `ratelimit:resume-upload:${studentId}`,
-    limit: 5,
-    windowSeconds: 600,
-  }),
-  jdUpload: (adminId: string): RateLimitRule => ({
+export async function checkJdUploadLimit(adminId: string): Promise<void> {
+  await checkTokenBucket({
     key: `ratelimit:jd-upload:${adminId}`,
-    limit: 20,
-    windowSeconds: 3600,
-  }),
-  matchRun: (adminId: string): RateLimitRule => ({
-    key: `ratelimit:match-run:${adminId}`,
-    limit: 10,
-    windowSeconds: 60,
-  }),
-  /** docs/screens.md §4.3 (feature 27g): keyed by submitted email, not IP — prevents inbox-spamming a single address. */
-  forgotPassword: (email: string): RateLimitRule => ({
-    key: `ratelimit:forgot-password:${email.toLowerCase()}`,
+    capacity: 15,
+    refillRatePerSecond: 1 / 180, // 1 token per 3 min → ~20/hour sustained
+  });
+}
+
+/**
+ * Secondary safety net only — the primary protection against duplicate,
+ * expensive match runs is matchingService.startMatchRun()'s own check
+ * against MatchRun.status (MatchRunAlreadyInProgressError: only one
+ * QUEUED/RUNNING run per job at a time). That's a concurrency guard on a
+ * *resource* (the job), not a request-count limit, so it belongs in the
+ * domain service, not here. This token bucket exists only to stop a
+ * runaway client (e.g. a stuck retry loop) from queuing match runs across
+ * many *different* jobs in rapid succession — generous enough that it
+ * never fires during normal admin use.
+ */
+export async function checkMatchRunBurstLimit(adminId: string): Promise<void> {
+  await checkTokenBucket({
+    key: `ratelimit:match-run-burst:${adminId}`,
+    capacity: 10,
+    refillRatePerSecond: 1 / 6, // ~10/min sustained
+  });
+}
+
+/** docs/screens.md §4.3 (feature 27g). */
+export async function checkForgotPasswordLimit(email: string, ipAddress: string): Promise<void> {
+  await checkSlidingWindowLog({
+    key: `ratelimit:forgot-password:email:${email.toLowerCase()}`,
     limit: 3,
     windowSeconds: 600,
-  }),
-};
+  });
+  await checkSlidingWindowLog({
+    key: `ratelimit:forgot-password:ip:${ipAddress}`,
+    limit: 20,
+    windowSeconds: 3600,
+  });
+}

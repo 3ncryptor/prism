@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requestPasswordReset } from "@/lib/services/passwordResetService";
-import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
+import { checkForgotPasswordLimit, RateLimitExceededError } from "@/lib/services/rateLimitService";
+import { getClientIp } from "@/lib/http/getClientIp";
 
 const bodySchema = z.object({ email: z.email() });
 
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
     }
 
-    await checkRateLimit(RATE_LIMITS.forgotPassword(parsed.data.email));
+    await checkForgotPasswordLimit(parsed.data.email, getClientIp(request));
     await requestPasswordReset(parsed.data.email);
 
     return NextResponse.json({ message: GENERIC_MESSAGE });

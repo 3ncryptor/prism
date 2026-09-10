@@ -34,9 +34,32 @@ export class NoActiveScoringConfigError extends Error {
   }
 }
 
+/**
+ * The real protection against duplicate, expensive match runs for the same
+ * job — not a request-rate limit (see rateLimitService.ts's
+ * checkMatchRunBurstLimit for the secondary, per-admin safety net). This is
+ * a concurrency guard on a *resource* (the job), checked against the
+ * durable MatchRun.status already persisted in Mongo rather than a Redis
+ * lock, so it needs no separate TTL/lock-expiry machinery of its own.
+ */
+export class MatchRunAlreadyInProgressError extends Error {
+  constructor() {
+    super("A match run is already in progress for this job");
+    this.name = "MatchRunAlreadyInProgressError";
+  }
+}
+
+/**
+ * A run stuck at QUEUED/RUNNING older than this is treated as abandoned
+ * (e.g. its worker process was hard-killed) rather than a real block, so
+ * one crashed run can't permanently prevent re-triggering matching for a
+ * job. Generous relative to a normal run's expected duration.
+ */
+const STALE_RUN_AFTER_MS = 20 * 60 * 1000;
+
 type Deps = {
   jobs: Pick<JobRepository, "get">;
-  matchRuns: Pick<MatchRunRepository, "create">;
+  matchRuns: Pick<MatchRunRepository, "create" | "findActiveByJobId">;
   scoringConfigs: Pick<ScoringConfigRepository, "getActive">;
   enqueueMatchJob: typeof defaultEnqueueMatchJob;
 };
@@ -64,6 +87,10 @@ export async function startMatchRun(
   if (!job) throw new JobNotFoundError();
   if (job.status !== "READY") throw new JobNotReadyError();
   if (job.listingStatus !== "LIVE") throw new JobNotLiveError();
+
+  const staleCutoff = new Date(Date.now() - STALE_RUN_AFTER_MS);
+  const activeRun = await deps.matchRuns.findActiveByJobId(jobId, staleCutoff);
+  if (activeRun) throw new MatchRunAlreadyInProgressError();
 
   const scoringConfig = await deps.scoringConfigs.getActive();
   if (!scoringConfig) throw new NoActiveScoringConfigError();

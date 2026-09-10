@@ -70,6 +70,24 @@ export class MatchRunRepository {
     const docs = await collection.find({ jobId }).sort({ createdAt: -1 }).toArray();
     return docs.map(toMatchRun);
   }
+
+  /**
+   * Concurrency guard for startMatchRun(): is there already a run for this
+   * job that hasn't reached a terminal status? `notBefore` excludes runs
+   * older than the caller's staleness cutoff, so a run stuck at
+   * QUEUED/RUNNING because its worker process was hard-killed (bypassing
+   * the normal catch-block -> FAILED transition) doesn't block this job
+   * forever — it just ages out and a new run becomes triggerable again.
+   */
+  async findActiveByJobId(jobId: string, notBefore: Date): Promise<MatchRun | null> {
+    const collection = await this.getCollection();
+    const doc = await collection.findOne({
+      jobId,
+      status: { $in: ["QUEUED", "RUNNING"] },
+      createdAt: { $gt: notBefore },
+    });
+    return doc ? toMatchRun(doc) : null;
+  }
 }
 
 async function defaultCollection(): Promise<Collection<MatchRunDocument>> {

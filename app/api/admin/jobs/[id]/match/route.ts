@@ -6,15 +6,16 @@ import {
   JobNotReadyError,
   JobNotLiveError,
   NoActiveScoringConfigError,
+  MatchRunAlreadyInProgressError,
 } from "@/lib/services/matchingService";
-import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
+import { checkMatchRunBurstLimit, RateLimitExceededError } from "@/lib/services/rateLimitService";
 import { recordAuditLog } from "@/lib/services/auditLogService";
 
 /** buildPlan.md §51/§113.3 / BACKEND_ARCHITECTURE.md §8. */
 export async function POST(_request: Request, ctx: RouteContext<"/api/admin/jobs/[id]/match">) {
   try {
     const session = await requireRole("ADMIN");
-    await checkRateLimit(RATE_LIMITS.matchRun(session.user.id));
+    await checkMatchRunBurstLimit(session.user.id);
     const { id } = await ctx.params;
 
     const result = await startMatchRun(id);
@@ -42,7 +43,8 @@ export async function POST(_request: Request, ctx: RouteContext<"/api/admin/jobs
     if (
       error instanceof JobNotReadyError ||
       error instanceof JobNotLiveError ||
-      error instanceof NoActiveScoringConfigError
+      error instanceof NoActiveScoringConfigError ||
+      error instanceof MatchRunAlreadyInProgressError
     ) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }

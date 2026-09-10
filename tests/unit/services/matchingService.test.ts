@@ -4,6 +4,7 @@ import {
   JobNotReadyError,
   JobNotLiveError,
   NoActiveScoringConfigError,
+  MatchRunAlreadyInProgressError,
 } from "@/lib/services/matchingService";
 import type { Job } from "@/lib/schemas/job";
 import type { ScoringConfig } from "@/lib/schemas/scoringConfig";
@@ -44,7 +45,10 @@ function makeScoringConfig(): ScoringConfig {
 function baseDeps() {
   return {
     jobs: { get: jest.fn().mockResolvedValue(makeJob()) },
-    matchRuns: { create: jest.fn().mockResolvedValue({ _id: "run-1" }) },
+    matchRuns: {
+      create: jest.fn().mockResolvedValue({ _id: "run-1" }),
+      findActiveByJobId: jest.fn().mockResolvedValue(null),
+    },
     scoringConfigs: { getActive: jest.fn().mockResolvedValue(makeScoringConfig()) },
     enqueueMatchJob: jest.fn().mockResolvedValue(undefined),
   };
@@ -85,5 +89,28 @@ describe("startMatchRun", () => {
     );
     expect(deps.enqueueMatchJob).toHaveBeenCalledWith({ type: "MATCH_JOB", matchRunId: "run-1" });
     expect(result).toEqual({ matchRunId: "run-1" });
+  });
+
+  it("throws MatchRunAlreadyInProgressError when a QUEUED/RUNNING run already exists for this job", async () => {
+    const deps = makeDeps({
+      matchRuns: {
+        create: jest.fn(),
+        findActiveByJobId: jest.fn().mockResolvedValue({ _id: "run-existing", status: "RUNNING" }),
+      },
+    });
+
+    await expect(startMatchRun("job-1", deps)).rejects.toThrow(MatchRunAlreadyInProgressError);
+    expect(deps.matchRuns.create).not.toHaveBeenCalled();
+    expect(deps.enqueueMatchJob).not.toHaveBeenCalled();
+  });
+
+  it("passes a staleness cutoff to findActiveByJobId so a hard-killed worker can't block a job forever", async () => {
+    const deps = makeDeps();
+
+    await startMatchRun("job-1", deps);
+
+    expect(deps.matchRuns.findActiveByJobId).toHaveBeenCalledWith("job-1", expect.any(Date));
+    const [, notBefore] = deps.matchRuns.findActiveByJobId.mock.calls[0];
+    expect(notBefore.getTime()).toBeLessThan(Date.now());
   });
 });

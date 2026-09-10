@@ -6,13 +6,13 @@ import {
   InvalidFileTypeError,
   FileTooLargeError,
 } from "@/lib/services/resumeService";
-import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
+import { checkResumeUploadLimit, RateLimitExceededError } from "@/lib/services/rateLimitService";
 import { jobRoleTaxonomyRepository } from "@/lib/db/repositories/jobRoleTaxonomyRepository";
 
 export async function POST(request: Request) {
   try {
     const session = await requireRole("STUDENT");
-    await checkRateLimit(RATE_LIMITS.resumeUpload(session.user.id));
+    await checkResumeUploadLimit(session.user.id);
 
     const formData = await request.formData();
     const file = formData.get("file");
