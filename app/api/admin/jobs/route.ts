@@ -5,15 +5,20 @@ import {
   listJobs,
   InvalidFileTypeError,
   FileTooLargeError,
+  MAX_JD_SIZE_BYTES,
 } from "@/lib/services/jobService";
 import { checkJdUploadLimit, RateLimitExceededError } from "@/lib/services/rateLimitService";
 import { recordAuditLog } from "@/lib/services/auditLogService";
 import { jobRoleTaxonomyRepository } from "@/lib/db/repositories/jobRoleTaxonomyRepository";
+import { rejectIfOversized } from "@/lib/http/rejectIfOversized";
 
 export async function POST(request: Request) {
   try {
     const session = await requireRole("ADMIN");
     await checkJdUploadLimit(session.user.id);
+
+    const oversized = rejectIfOversized(request, MAX_JD_SIZE_BYTES);
+    if (oversized) return oversized;
 
     const formData = await request.formData();
     const file = formData.get("file");

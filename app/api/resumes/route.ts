@@ -5,14 +5,19 @@ import {
   listResumes,
   InvalidFileTypeError,
   FileTooLargeError,
+  MAX_RESUME_SIZE_BYTES,
 } from "@/lib/services/resumeService";
 import { checkResumeUploadLimit, RateLimitExceededError } from "@/lib/services/rateLimitService";
 import { jobRoleTaxonomyRepository } from "@/lib/db/repositories/jobRoleTaxonomyRepository";
+import { rejectIfOversized } from "@/lib/http/rejectIfOversized";
 
 export async function POST(request: Request) {
   try {
     const session = await requireRole("STUDENT");
     await checkResumeUploadLimit(session.user.id);
+
+    const oversized = rejectIfOversized(request, MAX_RESUME_SIZE_BYTES);
+    if (oversized) return oversized;
 
     const formData = await request.formData();
     const file = formData.get("file");
