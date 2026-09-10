@@ -81,3 +81,39 @@ export function getAnthropicApiKey(): string {
 export function getOpenAiApiKey(): string {
   return requireEnv("OPENAI_API_KEY");
 }
+
+/** docs/screens.md §4.3 (feature 27g): the absolute origin embedded in password-reset links. */
+export function getAppBaseUrl(): string {
+  return process.env.APP_BASE_URL || "http://localhost:3000";
+}
+
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  from: string;
+}
+
+/**
+ * docs/screens.md §4.3/§4.4 (feature 27g). Returns null (never throws) when
+ * unconfigured — lib/email/index.ts falls back to a console-logging dev
+ * provider so local development and CI never require real SMTP
+ * credentials, matching this project's provider-abstraction philosophy
+ * (buildPlan.md §5.7): switching providers is an environment-config
+ * change, not a code branch.
+ */
+export function getSmtpConfig(): SmtpConfig | null {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) return null;
+
+  return {
+    host,
+    port: Number(process.env.SMTP_PORT) || 587,
+    user,
+    pass,
+    from: process.env.SMTP_FROM || user,
+  };
+}

@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@auth/core/jwt": ["./node_modules/next-auth/node_modules/@auth/core/jwt.d.ts"]
     }
   },
   "include": [

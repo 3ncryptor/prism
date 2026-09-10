@@ -53,4 +53,10 @@ export const RATE_LIMITS = {
     limit: 10,
     windowSeconds: 60,
   }),
+  /** docs/screens.md §4.3 (feature 27g): keyed by submitted email, not IP — prevents inbox-spamming a single address. */
+  forgotPassword: (email: string): RateLimitRule => ({
+    key: `ratelimit:forgot-password:${email.toLowerCase()}`,
+    limit: 3,
+    windowSeconds: 600,
+  }),
 };
