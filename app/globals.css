@@ -24,6 +24,17 @@
   --status-error: #dc2626;
   --status-warning: #d97706;
   --status-info: #2563eb;
+
+  /* buildPlan.md §120 (features 27i-27o): the single brand-token source —
+     lib/ui/ primitives and lib/designTokens.ts read these, nothing
+     hardcodes the hex directly (soft-motion-ui-v2 §6's "no literal hex in
+     component code" rule, adapted — a re-theme is a one-file edit here). */
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-tint: #eef2ff;
+  --radius-card: 2rem;
+  --shadow-card-rest: 0 8px 30px rgb(15 23 42 / 0.05);
+  --shadow-card-hover: 0 20px 45px rgb(15 23 42 / 0.10);
 }
 
 @theme inline {
@@ -36,6 +47,10 @@
   --color-status-error: var(--status-error);
   --color-status-warning: var(--status-warning);
   --color-status-info: var(--status-info);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-tint: var(--brand-tint);
+  --radius-card: var(--radius-card);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
