@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  compiler: {
-    styledComponents: true,
-  },
   // Self-contained production server bundle (only the deps actually used,
   // traced automatically) instead of requiring the full node_modules tree
   // alongside the build output — the standard shape for a containerized
@@ -22,11 +19,10 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           // Only takes effect over HTTPS (browsers ignore it on plain HTTP);
-          // harmless to send unconditionally. No CSP here — this app leans
-          // heavily on inline styles (styled-components, Grauity, per-brand
-          // inline `style` props throughout), and a CSP tight enough to be
-          // meaningful would need real per-page auditing to avoid breaking
-          // the UI; not worth guessing at blind.
+          // harmless to send unconditionally. No CSP here — this app uses
+          // per-brand inline `style` props throughout, and a CSP tight
+          // enough to be meaningful would need real per-page auditing to
+          // avoid breaking the UI; not worth guessing at blind.
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
         ],
       },

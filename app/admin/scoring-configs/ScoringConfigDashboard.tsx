@@ -1,24 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { ScoringConfig } from "@/lib/schemas/scoringConfig";
-import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { MUTED_TEXT_COLOR } from "@/lib/designTokens";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
+import { Typography } from "@/lib/ui/Typography";
+import { Input } from "@/lib/ui/Input";
+import { Button } from "@/lib/ui/Button";
+import { Badge } from "@/lib/ui/Badge";
 
 interface ScoringConfigDashboardProps {
   initialVersions: ScoringConfig[];
 }
 
 type WeightKey = keyof ScoringConfig["weights"];
-const WEIGHT_FIELDS: { key: WeightKey; label: string }[] = [
-  { key: "hardRequirements", label: "Hard requirements" },
-  { key: "skills", label: "Skills" },
-  { key: "experience", label: "Experience" },
-  { key: "projects", label: "Projects" },
-  { key: "education", label: "Education" },
-  { key: "other", label: "Other" },
+const WEIGHT_FIELDS: { key: WeightKey; label: string; color: string }[] = [
+  { key: "hardRequirements", label: "Hard requirements", color: "#4F46E5" },
+  { key: "skills", label: "Skills", color: "#0891B2" },
+  { key: "experience", label: "Experience", color: "#059669" },
+  { key: "projects", label: "Projects", color: "#EA580C" },
+  { key: "education", label: "Education", color: "#C026D3" },
+  { key: "other", label: "Other", color: "#6B7280" },
 ];
 
 interface FormState {
@@ -60,6 +63,36 @@ const BLANK_FORM: FormState = {
   mandatoryPenalty: "",
 };
 
+function WeightDistributionBar({ weights }: { weights: Record<WeightKey, string> }) {
+  const total = WEIGHT_FIELDS.reduce((sum, { key }) => sum + Math.max(parseFloat(weights[key]) || 0, 0), 0);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-100">
+        {WEIGHT_FIELDS.map(({ key, color }) => {
+          const value = Math.max(parseFloat(weights[key]) || 0, 0);
+          const pct = total > 0 ? (value / total) * 100 : 0;
+          return <div key={key} style={{ width: `${pct}%`, backgroundColor: color }} />;
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {WEIGHT_FIELDS.map(({ key, label, color }) => (
+          <span key={key} className="flex items-center gap-1.5 text-xs" style={{ color: MUTED_TEXT_COLOR }}>
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * docs/screens.md §8.9 (feature 27o): rebuilt as two-pane (active config
+ * summary + version history on the left, create-new-version form on the
+ * right) to match Job Roles/Skill Taxonomy's layout, migrated off
+ * Grauity. The 6 weight inputs gain a live color-as-data stacked bar
+ * (WeightDistributionBar) that updates as the admin types.
+ */
 export function ScoringConfigDashboard({ initialVersions }: ScoringConfigDashboardProps) {
   const [versions, setVersions] = useState(initialVersions);
   const active = versions.find((v) => v.isActive) ?? null;
@@ -134,92 +167,119 @@ export function ScoringConfigDashboard({ initialVersions }: ScoringConfigDashboa
     <div className="flex w-full flex-col gap-6">
       <PageHeader title="Scoring Config" />
 
-      {active && (
-        <Card className="flex flex-col gap-2 bg-gray-50">
-          <div className="flex items-center gap-3">
-            <NSTypography variant="heading-sb-h4" as="h2">Active: {active.version}</NSTypography>
-            <NSPill color="success" isActive>Active</NSPill>
-          </div>
-          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-            Weights: {WEIGHT_FIELDS.map(({ key, label }) => `${label} ${active.weights[key]}`).join(", ")}
-          </NSTypography>
-          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-            Buckets: Best Fit ≥ {active.buckets.bestFit}, Moderate Fit ≥ {active.buckets.moderateFit}
-          </NSTypography>
-          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-            Semantic thresholds: strong ≥ {active.semanticThresholds.strong}, possible ≥ {active.semanticThresholds.possible}
-          </NSTypography>
-          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-            Mandatory penalty: {active.mandatoryPenalty}
-          </NSTypography>
-        </Card>
-      )}
+      <div className="flex flex-wrap gap-6">
+        <Card className="flex min-w-[280px] flex-1 flex-col gap-4">
+          {active && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <Typography variant="h3">Active: {active.version}</Typography>
+                <Badge tone="success">Active</Badge>
+              </div>
+              <WeightDistributionBar weights={toFormState(active).weights} />
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
+                Buckets: Best Fit ≥ {active.buckets.bestFit}, Moderate Fit ≥ {active.buckets.moderateFit}
+              </Typography>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
+                Semantic thresholds: strong ≥ {active.semanticThresholds.strong}, possible ≥ {active.semanticThresholds.possible}
+              </Typography>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
+                Mandatory penalty: {active.mandatoryPenalty}
+              </Typography>
+            </div>
+          )}
 
-      <Card as="form" onSubmit={handleSubmit} className="flex flex-col gap-3 bg-gray-50">
-          <NSTypography variant="heading-sb-h4" as="h2">Create new version</NSTypography>
-          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+          <div className="flex flex-col gap-3">
+            <Typography variant="h3">Version history</Typography>
+            <div className="flex flex-col gap-2">
+              {versions.map((version) => (
+                <div key={version._id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+                  <div>
+                    <Typography variant="body" as="span" className="font-semibold">
+                      {version.version}
+                    </Typography>
+                    <Typography variant="caption">{new Date(version.createdAt).toLocaleString()}</Typography>
+                  </div>
+                  {version.isActive ? (
+                    <Badge tone="success">Active</Badge>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={activatingId === version._id}
+                      onClick={() => handleActivate(version._id)}
+                    >
+                      {activatingId === version._id ? "Activating…" : "Activate"}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <Card as="form" onSubmit={handleSubmit} className="flex min-w-[320px] flex-1 flex-col gap-3 bg-gray-50">
+          <Typography variant="h3">Create new version</Typography>
+          <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
             Pre-filled from the active config — adjust values and save as a new version. Existing versions are never edited in place.
-          </NSTypography>
-          <NSTextField
-            name="version"
-            label="Version name"
-            placeholder="e.g. scoring-v2"
-            value={form.version}
-            onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))}
-          />
+          </Typography>
+          <label className="flex flex-col gap-1 text-sm text-gray-700">
+            Version name
+            <Input
+              name="version"
+              placeholder="e.g. scoring-v2"
+              value={form.version}
+              onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))}
+            />
+          </label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {WEIGHT_FIELDS.map(({ key, label }) => (
-              <NSTextField
-                key={key}
-                name={`weight-${key}`}
-                label={label}
-                value={form.weights[key]}
-                onChange={(e) => setForm((f) => ({ ...f, weights: { ...f.weights, [key]: e.target.value } }))}
-              />
+              <label key={key} className="flex flex-col gap-1 text-sm text-gray-700">
+                {label}
+                <Input
+                  name={`weight-${key}`}
+                  value={form.weights[key]}
+                  onChange={(e) => setForm((f) => ({ ...f, weights: { ...f.weights, [key]: e.target.value } }))}
+                />
+              </label>
             ))}
           </div>
-          <NSTypography variant="paragraph-md-p3" color={Math.abs(weightSum - 1) > 0.01 ? "var(--color-error)" : MUTED_TEXT_COLOR}>
+          <WeightDistributionBar weights={form.weights} />
+          <Typography variant="caption" style={{ color: Math.abs(weightSum - 1) > 0.01 ? "#dc2626" : MUTED_TEXT_COLOR }}>
             Weight sum: {weightSum.toFixed(3)} (must be 1.0 ± 0.01)
-          </NSTypography>
+          </Typography>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <NSTextField name="bestFit" label="Best Fit threshold" value={form.bestFit} onChange={(e) => setForm((f) => ({ ...f, bestFit: e.target.value }))} />
-            <NSTextField name="moderateFit" label="Moderate Fit threshold" value={form.moderateFit} onChange={(e) => setForm((f) => ({ ...f, moderateFit: e.target.value }))} />
-            <NSTextField name="strong" label="Strong semantic threshold" value={form.strong} onChange={(e) => setForm((f) => ({ ...f, strong: e.target.value }))} />
-            <NSTextField name="possible" label="Possible semantic threshold" value={form.possible} onChange={(e) => setForm((f) => ({ ...f, possible: e.target.value }))} />
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Best Fit threshold
+              <Input name="bestFit" value={form.bestFit} onChange={(e) => setForm((f) => ({ ...f, bestFit: e.target.value }))} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Moderate Fit threshold
+              <Input name="moderateFit" value={form.moderateFit} onChange={(e) => setForm((f) => ({ ...f, moderateFit: e.target.value }))} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Strong semantic threshold
+              <Input name="strong" value={form.strong} onChange={(e) => setForm((f) => ({ ...f, strong: e.target.value }))} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Possible semantic threshold
+              <Input name="possible" value={form.possible} onChange={(e) => setForm((f) => ({ ...f, possible: e.target.value }))} />
+            </label>
           </div>
-          <NSTextField name="mandatoryPenalty" label="Mandatory penalty" value={form.mandatoryPenalty} onChange={(e) => setForm((f) => ({ ...f, mandatoryPenalty: e.target.value }))} />
+          <label className="flex flex-col gap-1 text-sm text-gray-700">
+            Mandatory penalty
+            <Input name="mandatoryPenalty" value={form.mandatoryPenalty} onChange={(e) => setForm((f) => ({ ...f, mandatoryPenalty: e.target.value }))} />
+          </label>
           <div>
-            <NSButton type="submit" variant="primary" loading={isSaving}>Save as new version</NSButton>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving…" : "Save as new version"}
+            </Button>
           </div>
-          {error && <NSAlert variant="error" icon={null} description={error} />}
-      </Card>
-
-      <div className="flex flex-col gap-3">
-        <NSTypography variant="heading-sb-h4" as="h2">Version history</NSTypography>
-        <div className="flex flex-col gap-2">
-          {versions.map((version) => (
-            <div key={version._id} className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
-              <div>
-                <NSTypography variant="paragraph-sb-p2" as="span">{version.version}</NSTypography>
-                <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                  {new Date(version.createdAt).toLocaleString()}
-                </NSTypography>
-              </div>
-              {version.isActive ? (
-                <NSPill color="success" isActive>Active</NSPill>
-              ) : (
-                <NSButton
-                  variant="tertiary"
-                  size="small"
-                  loading={activatingId === version._id}
-                  onClick={() => handleActivate(version._id)}
-                >
-                  Activate
-                </NSButton>
-              )}
-            </div>
-          ))}
-        </div>
+          {error && (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
+        </Card>
       </div>
     </div>
   );

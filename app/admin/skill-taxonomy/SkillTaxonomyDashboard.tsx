@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { SkillTaxonomyEntry } from "@/lib/schemas/skillTaxonomy";
-import { BRAND_COLOR, BRAND_TINT_COLOR, MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR, BRAND_TINT_COLOR, MUTED_TEXT_COLOR } from "@/lib/designTokens";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
+import { Typography } from "@/lib/ui/Typography";
+import { Input } from "@/lib/ui/Input";
+import { Select } from "@/lib/ui/Select";
+import { Button } from "@/lib/ui/Button";
+import { Badge } from "@/lib/ui/Badge";
 
 type EntryWithUsage = SkillTaxonomyEntry & { usageCount: number };
 
@@ -35,11 +39,11 @@ interface FormState {
 const EMPTY_FORM: FormState = { editingId: null, canonicalName: "", displayName: "", category: "LANGUAGE", aliases: "" };
 
 /**
- * docs/screens.md §6.4 (feature 27a2): retrofitted from a top-form-then-
- * flat-table layout to a two-pane master-detail — a scrollable skills list
- * on the left, the create/edit form for whichever skill is selected (or a
- * blank "Add skill" form) on the right. Same create/edit/deactivate/
- * usage-count logic as before; layout only.
+ * docs/screens.md §6.4 (feature 27a2), visual pass in §8.9 (feature 27o):
+ * two-pane master-detail, migrated off Grauity onto lib/ui. The master
+ * list gets a visible custom scrollbar (app/globals.css's .custom-scroll)
+ * plus a bottom fade-out cue — the live audit found 1830px of content in
+ * a 448px box with zero scroll affordance.
  */
 export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboardProps) {
   const [skills, setSkills] = useState(initialSkills);
@@ -129,13 +133,13 @@ export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboard
     <div className="flex w-full flex-col gap-6">
       <PageHeader title="Skill Taxonomy" />
 
-      <div className="flex gap-6">
-        <Card className="flex w-64 shrink-0 flex-col gap-1 p-3">
-          <div className="max-h-[28rem] overflow-y-auto">
+      <div className="flex flex-wrap gap-6">
+        <Card className="relative flex w-64 shrink-0 flex-col gap-1 p-3">
+          <div className="custom-scroll max-h-[28rem] overflow-y-auto">
             {skills.length === 0 ? (
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 No skills yet.
-              </NSTypography>
+              </Typography>
             ) : (
               skills.map((entry) => {
                 const isSelected = entry._id === form.editingId;
@@ -147,51 +151,60 @@ export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboard
                     className="w-full rounded-md px-3 py-2 text-left transition-colors duration-150 ease-out"
                     style={isSelected ? { backgroundColor: BRAND_TINT_COLOR } : undefined}
                   >
-                    <NSTypography
-                      variant="paragraph-sb-p3"
+                    <Typography
+                      variant="body"
                       as="span"
-                      color={isSelected ? BRAND_COLOR : entry.isActive ? undefined : MUTED_TEXT_COLOR}
+                      style={{ color: isSelected ? BRAND_COLOR : entry.isActive ? undefined : MUTED_TEXT_COLOR }}
+                      className={isSelected ? "font-semibold" : undefined}
                     >
                       <span style={!entry.isActive ? { textDecoration: "line-through" } : undefined}>
                         {entry.canonicalName}
                       </span>
-                    </NSTypography>
+                    </Typography>
                   </button>
                 );
               })
             )}
           </div>
-          <NSButton type="button" variant="tertiary" size="small" onClick={() => setForm(EMPTY_FORM)}>
+          {skills.length > 0 && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-3 bottom-12 h-8 bg-gradient-to-t from-white to-transparent"
+            />
+          )}
+          <Button type="button" variant="ghost" size="sm" onClick={() => setForm(EMPTY_FORM)}>
             + Add skill
-          </NSButton>
+          </Button>
         </Card>
 
-        <Card as="form" onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3 bg-gray-50">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            {form.editingId ? "Edit skill" : "Add a skill"}
-          </NSTypography>
+        <Card as="form" onSubmit={handleSubmit} className="flex min-w-[280px] flex-1 flex-col gap-3 bg-gray-50">
+          <Typography variant="h3">{form.editingId ? "Edit skill" : "Add a skill"}</Typography>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <NSTextField
-              name="canonicalName"
-              label="Canonical name"
-              placeholder="e.g. node.js"
-              value={form.canonicalName}
-              isDisabled={Boolean(form.editingId)}
-              onChange={(e) => setForm((f) => ({ ...f, canonicalName: e.target.value }))}
-            />
-            <NSTextField
-              name="displayName"
-              label="Display name"
-              placeholder="e.g. Node.js"
-              value={form.displayName}
-              onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-            />
+            <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+              Canonical name
+              <Input
+                name="canonicalName"
+                placeholder="e.g. node.js"
+                value={form.canonicalName}
+                disabled={Boolean(form.editingId)}
+                onChange={(e) => setForm((f) => ({ ...f, canonicalName: e.target.value }))}
+              />
+            </label>
+            <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+              Display name
+              <Input
+                name="displayName"
+                placeholder="e.g. Node.js"
+                value={form.displayName}
+                onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+              />
+            </label>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="flex flex-col gap-1 text-sm">
+            <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
               Category
-              <select
-                className="rounded border border-gray-300 px-3 py-2"
+              <Select
+                name="category"
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as SkillTaxonomyEntry["category"] }))}
               >
@@ -200,46 +213,48 @@ export function SkillTaxonomyDashboard({ initialSkills }: SkillTaxonomyDashboard
                     {category}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
-            <NSTextField
-              name="aliases"
-              label="Aliases (comma-separated)"
-              placeholder="e.g. nodejs, node"
-              value={form.aliases}
-              onChange={(e) => setForm((f) => ({ ...f, aliases: e.target.value }))}
-            />
+            <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+              Aliases (comma-separated)
+              <Input
+                name="aliases"
+                placeholder="e.g. nodejs, node"
+                value={form.aliases}
+                onChange={(e) => setForm((f) => ({ ...f, aliases: e.target.value }))}
+              />
+            </label>
           </div>
 
           {selectedEntry && (
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+            <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
               Usage: {selectedEntry.usageCount} reference{selectedEntry.usageCount === 1 ? "" : "s"}
-            </NSTypography>
+            </Typography>
           )}
 
           <div className="flex items-center gap-3">
-            <NSButton type="submit" variant="primary" loading={isSaving}>
-              {form.editingId ? "Save changes" : "Add skill"}
-            </NSButton>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving…" : form.editingId ? "Save changes" : "Add skill"}
+            </Button>
             {selectedEntry?.isActive && (
-              <NSButton type="button" variant="tertiary" onClick={() => handleDeactivate(selectedEntry._id)}>
+              <Button type="button" variant="outline" onClick={() => handleDeactivate(selectedEntry._id)}>
                 Deactivate
-              </NSButton>
+              </Button>
             )}
             {form.editingId && (
-              <NSButton type="button" variant="tertiary" onClick={() => setForm(EMPTY_FORM)}>
+              <Button type="button" variant="ghost" onClick={() => setForm(EMPTY_FORM)}>
                 Cancel
-              </NSButton>
+              </Button>
             )}
           </div>
 
-          {selectedEntry && (
-            <NSPill color={selectedEntry.isActive ? "success" : "error"} isActive>
-              {selectedEntry.isActive ? "Active" : "Inactive"}
-            </NSPill>
-          )}
+          {selectedEntry && <Badge tone={selectedEntry.isActive ? "success" : "error"}>{selectedEntry.isActive ? "Active" : "Inactive"}</Badge>}
 
-          {error && <NSAlert variant="error" icon={null} description={error} />}
+          {error && (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
         </Card>
       </div>
     </div>

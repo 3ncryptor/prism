@@ -24,7 +24,6 @@
     "@aws-sdk/s3-request-presigner": "^3.1125.0",
     "@google/generative-ai": "^0.24.1",
     "@gsap/react": "^2.1.2",
-    "@newtonschool/grauity": "^3.5.4",
     "@pinecone-database/pinecone": "^8.2.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "bcryptjs": "^3.0.3",
@@ -46,7 +45,6 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "sass": "^1.104.0",
-    "styled-components": "^6.5.3",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.5.4"
   },

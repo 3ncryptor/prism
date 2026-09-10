@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ResetPasswordForm } from "@/app/(auth)/reset-password/ResetPasswordForm";
-import { BRAND_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR } from "@/lib/designTokens";
 
 /** docs/screens.md §4.4 (feature 27g): centered card inside AuthLayout's shell. */
 export default async function ResetPasswordPage(props: PageProps<"/reset-password">) {

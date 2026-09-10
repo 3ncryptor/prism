@@ -1,12 +1,14 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { NSAlert, NSButton, NSTypography } from "@newtonschool/grauity";
 import type { MatchResult } from "@/lib/schemas/matchResult";
-import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { MUTED_TEXT_COLOR } from "@/lib/designTokens";
 import { EvidenceList } from "@/app/shared/EvidenceList";
 import { BucketPill } from "@/lib/layout/BucketPill";
 import { EmptyState } from "@/lib/layout/EmptyState";
+import { Typography } from "@/lib/ui/Typography";
+import { Button } from "@/lib/ui/Button";
+import { useStagger } from "@/lib/motion/useStagger";
 
 export type EnrichedMatchResult = MatchResult & { studentName: string; studentEmail: string };
 
@@ -14,10 +16,16 @@ interface ResultTableProps {
   results: EnrichedMatchResult[];
 }
 
-/** buildPlan.md §85: Rank/Student/Score/Confidence/Bucket/Missing requirements. */
+/**
+ * buildPlan.md §85: Rank/Student/Score/Confidence/Bucket/Missing
+ * requirements. Visual pass in docs/screens.md §8.8 (feature 27o):
+ * migrated off Grauity, rows get a hover state + useStagger on first
+ * render.
+ */
 export function ResultTable({ results }: ResultTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const bodyRef = useStagger<HTMLTableSectionElement>([results.length]);
 
   if (results.length === 0) {
     return <EmptyState message="No results yet. Run matching to evaluate candidates." />;
@@ -37,65 +45,61 @@ export function ResultTable({ results }: ResultTableProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {resumeError && <NSAlert variant="error" icon={null} description={resumeError} />}
+      {resumeError && (
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {resumeError}
+        </p>
+      )}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
       <table className="w-full min-w-[720px] border-collapse text-left">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
             {["Rank", "Student", "Score", "Confidence", "Bucket", "Missing requirements", ""].map((heading) => (
               <th key={heading} className="px-4 py-3">
-                <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+                <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                   {heading}
-                </NSTypography>
+                </Typography>
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody ref={bodyRef}>
           {results.map((result, index) => {
             const isExpanded = expandedId === result._id;
             return (
               <Fragment key={result._id}>
-                <tr className="border-b border-gray-100 last:border-0">
+                <tr className="border-b border-gray-100 transition-colors duration-150 ease-out last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-md-p3">{index + 1}</NSTypography>
+                    <Typography variant="body">{index + 1}</Typography>
                   </td>
                   <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-sb-p3">{result.studentName}</NSTypography>
-                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                      {result.studentEmail}
-                    </NSTypography>
+                    <Typography variant="body" className="font-semibold">
+                      {result.studentName}
+                    </Typography>
+                    <Typography variant="caption">{result.studentEmail}</Typography>
                   </td>
                   <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-md-p3">{result.score.toFixed(1)}</NSTypography>
+                    <Typography variant="body">{result.score.toFixed(1)}</Typography>
                   </td>
                   <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-md-p3">{result.confidence.toFixed(0)}%</NSTypography>
+                    <Typography variant="body">{result.confidence.toFixed(0)}%</Typography>
                   </td>
                   <td className="px-4 py-3">
                     <BucketPill bucket={result.bucket} />
                   </td>
                   <td className="px-4 py-3">
-                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+                    <Typography variant="caption">
                       {result.missingRequirements.length > 0 ? result.missingRequirements.join(", ") : "—"}
-                    </NSTypography>
+                    </Typography>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <NSButton
-                        variant="tertiary"
-                        size="small"
-                        onClick={() => setExpandedId(isExpanded ? null : result._id)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => setExpandedId(isExpanded ? null : result._id)}>
                         {isExpanded ? "Hide evidence" : "View evidence"}
-                      </NSButton>
-                      <NSButton
-                        variant="tertiary"
-                        size="small"
-                        onClick={() => handleViewResume(result.resumeId)}
-                      >
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleViewResume(result.resumeId)}>
                         View resume file
-                      </NSButton>
+                      </Button>
                     </div>
                   </td>
                 </tr>

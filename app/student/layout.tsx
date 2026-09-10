@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth/guard";
 import { signOut } from "@/lib/auth/config";
-import { ClientOnlyAppShell } from "@/lib/layout/ClientOnlyAppShell";
+import { AppShell } from "@/lib/layout/AppShell";
 import type { SidebarNavItem } from "@/lib/layout/Sidebar";
 
 const STUDENT_NAV_ITEMS: SidebarNavItem[] = [
@@ -20,13 +20,13 @@ export default async function StudentRootLayout({ children }: LayoutProps<"/stud
   const session = await requireRole("STUDENT");
 
   return (
-    <ClientOnlyAppShell
+    <AppShell
       navItems={STUDENT_NAV_ITEMS}
       name={session.user.name ?? ""}
       email={session.user.email ?? ""}
       onSignOut={handleSignOut}
     >
       {children}
-    </ClientOnlyAppShell>
+    </AppShell>
   );
 }

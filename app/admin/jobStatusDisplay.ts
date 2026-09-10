@@ -1,7 +1,7 @@
 import type { JobStatus } from "@/lib/schemas/job";
-import type { PillProps } from "@newtonschool/grauity";
+import type { BadgeProps } from "@/lib/ui/Badge";
 
-type PillColor = NonNullable<PillProps["color"]>;
+type BadgeTone = NonNullable<BadgeProps["tone"]>;
 
 export function jobStatusLabel(status: JobStatus): string {
   if (status === "READY") return "Ready";
@@ -9,7 +9,7 @@ export function jobStatusLabel(status: JobStatus): string {
   return "Processing";
 }
 
-export function jobStatusColor(status: JobStatus): PillColor {
+export function jobStatusColor(status: JobStatus): BadgeTone {
   if (status === "READY") return "success";
   if (status === "FAILED") return "error";
   return "warning";

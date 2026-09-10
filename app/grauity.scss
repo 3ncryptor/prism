@@ -1,8 +1,0 @@
-/*
- * Grauity's non-CSS-variable global styles (design tokens themselves come
- * from tokens.css, imported in globals.css instead — see
- * docs/agent-artifacts/09-13-student-and-jd-pipeline/spec.md §10).
- */
-@import "@newtonschool/grauity/css/reset.scss";
-@import "@newtonschool/grauity/css/grauity-icons.scss";
-@import "@newtonschool/grauity/css/fonts.scss";

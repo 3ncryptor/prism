@@ -2,26 +2,28 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { NSPill, NSTypography } from "@newtonschool/grauity";
 import type { Job } from "@/lib/schemas/job";
 import { JobUploadForm } from "@/app/admin/JobUploadForm";
 import { jobStatusColor, jobStatusLabel } from "@/app/admin/jobStatusDisplay";
-import { MUTED_TEXT_COLOR, BRAND_COLOR } from "@/lib/grauityTheme";
+import { MUTED_TEXT_COLOR, BRAND_COLOR } from "@/lib/designTokens";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { EmptyState } from "@/lib/layout/EmptyState";
+import { Typography } from "@/lib/ui/Typography";
+import { Badge } from "@/lib/ui/Badge";
+import { useStagger } from "@/lib/motion/useStagger";
 
 interface JobsListDashboardProps {
   initialJobs: Job[];
 }
 
 /**
- * docs/screens.md §8.7 (feature 27n): moved from /admin (now the real
- * dashboard, lib/services/adminDashboardService.ts) to its own sidebar
- * item. Content/behavior unchanged here — the Grauity visual pass for
- * this page is its own line item, docs/screens.md §8.8 (feature 27o).
+ * docs/screens.md §8.8 (feature 27o): visual pass — migrated off Grauity
+ * onto lib/ui, list rows get useStagger on first render. Behavior
+ * unchanged from feature 27n's move.
  */
 export function JobsListDashboard({ initialJobs }: JobsListDashboardProps) {
   const [jobs, setJobs] = useState(initialJobs);
+  const listRef = useStagger<HTMLDivElement>([jobs.length]);
 
   async function refreshJobs() {
     const response = await fetch("/api/admin/jobs");
@@ -35,9 +37,7 @@ export function JobsListDashboard({ initialJobs }: JobsListDashboardProps) {
       <PageHeader title="Jobs" />
 
       <div className="flex flex-col gap-3">
-        <NSTypography variant="heading-sb-h4" as="h2">
-          Upload a job description
-        </NSTypography>
+        <Typography variant="h3">Upload a job description</Typography>
         <JobUploadForm onUploaded={refreshJobs} />
       </div>
 
@@ -45,7 +45,7 @@ export function JobsListDashboard({ initialJobs }: JobsListDashboardProps) {
         {jobs.length === 0 ? (
           <EmptyState message="No job descriptions uploaded yet." />
         ) : (
-          <div className="flex flex-col gap-2">
+          <div ref={listRef} className="flex flex-col gap-2">
             {jobs.map((job) => (
               <Link
                 key={job._id}
@@ -53,22 +53,21 @@ export function JobsListDashboard({ initialJobs }: JobsListDashboardProps) {
                 className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 transition-colors duration-150 ease-out hover:bg-gray-100"
               >
                 <div>
-                  <NSTypography variant="paragraph-sb-p2" as="span">
+                  <Typography variant="body" as="span" className="font-semibold">
                     {job.title}
-                  </NSTypography>
-                  {job.company && (
-                    <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                      {job.company}
-                    </NSTypography>
-                  )}
+                  </Typography>
+                  {job.company && <Typography variant="caption">{job.company}</Typography>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <NSTypography variant="paragraph-sb-p3" color={job.listingStatus === "LIVE" ? BRAND_COLOR : MUTED_TEXT_COLOR}>
+                  <Typography
+                    variant="body"
+                    as="span"
+                    className="font-semibold"
+                    style={{ color: job.listingStatus === "LIVE" ? BRAND_COLOR : MUTED_TEXT_COLOR }}
+                  >
                     {job.listingStatus === "LIVE" ? "Live" : "Draft"}
-                  </NSTypography>
-                  <NSPill color={jobStatusColor(job.status)} isActive>
-                    {jobStatusLabel(job.status)}
-                  </NSPill>
+                  </Typography>
+                  <Badge tone={jobStatusColor(job.status)}>{jobStatusLabel(job.status)}</Badge>
                 </div>
               </Link>
             ))}

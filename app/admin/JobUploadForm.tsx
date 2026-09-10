@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { NSAlert, NSButton, NSTextField } from "@newtonschool/grauity";
 import type { JobRoleTaxonomyEntry } from "@/lib/schemas/jobRoleTaxonomy";
+import { Input } from "@/lib/ui/Input";
+import { Select } from "@/lib/ui/Select";
+import { Button } from "@/lib/ui/Button";
 
 const ACCEPTED_EXTENSIONS = ".pdf,.docx";
 
@@ -10,6 +12,7 @@ interface JobUploadFormProps {
   onUploaded: () => void;
 }
 
+/** docs/screens.md §8.8 (feature 27o): migrated off Grauity onto lib/ui. */
 export function JobUploadForm({ onUploaded }: JobUploadFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
@@ -68,53 +71,43 @@ export function JobUploadForm({ onUploaded }: JobUploadFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <NSTextField
-          name="title"
-          label="Job title"
-          placeholder="e.g. Backend Engineer"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <NSTextField
-          name="company"
-          label="Company (optional)"
-          placeholder="e.g. Acme Corp"
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-        />
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm text-gray-700">
+          Job title
+          <Input name="title" placeholder="e.g. Backend Engineer" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+        <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm text-gray-700">
+          Company (optional)
+          <Input name="company" placeholder="e.g. Acme Corp" value={company} onChange={(e) => setCompany(e.target.value)} />
+        </label>
+        <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-sm text-gray-700">
           Job role
-          <select
-            className="rounded border border-gray-300 px-3 py-2"
-            value={jobRole}
-            onChange={(e) => setJobRole(e.target.value)}
-          >
+          <Select name="jobRole" value={jobRole} onChange={(e) => setJobRole(e.target.value)}>
             <option value="">Select a role…</option>
             {roles.map((role) => (
               <option key={role._id} value={role.canonicalName}>
                 {role.displayName}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
 
       <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS} className="sr-only" id="jd-file-input" />
-      <div className="flex items-center gap-3">
-        <NSButton
-          type="button"
-          variant="secondary"
-          onClick={() => fileInputRef.current?.click()}
-        >
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
           Choose JD file
-        </NSButton>
-        <NSButton type="submit" variant="primary" loading={isUploading}>
-          Upload job description
-        </NSButton>
+        </Button>
+        <Button type="submit" disabled={isUploading}>
+          {isUploading ? "Uploading…" : "Upload job description"}
+        </Button>
       </div>
 
-      {uploadError && <NSAlert variant="error" icon={null} description={uploadError} />}
+      {uploadError && (
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {uploadError}
+        </p>
+      )}
     </form>
   );
 }

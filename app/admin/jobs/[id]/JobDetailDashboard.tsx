@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NSAlert, NSButton, NSTypography } from "@newtonschool/grauity";
 import type { Job } from "@/lib/schemas/job";
 import type { JobProfile } from "@/lib/schemas/jobProfile";
 import type { MatchRun } from "@/lib/schemas/matchRun";
-import { MUTED_TEXT_COLOR, BRAND_COLOR } from "@/lib/grauityTheme";
+import { MUTED_TEXT_COLOR, BRAND_COLOR } from "@/lib/designTokens";
 import { ResultTable, type EnrichedMatchResult } from "@/app/admin/jobs/[id]/ResultTable";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
 import { StatCard } from "@/lib/layout/StatCard";
+import { Typography } from "@/lib/ui/Typography";
+import { Button } from "@/lib/ui/Button";
+import { Select } from "@/lib/ui/Select";
 
 const POLL_INTERVAL_MS = 3000;
 const NON_TERMINAL_STATUSES: MatchRun["status"][] = ["QUEUED", "RUNNING"];
@@ -42,68 +44,62 @@ function ParsedProfileSection({ jobProfile }: { jobProfile: JobProfile }) {
         onClick={() => setIsExpanded((v) => !v)}
         className="flex items-center justify-between text-left"
       >
-        <NSTypography variant="heading-sb-h4" as="h2">
-          Parsed JD Profile
-        </NSTypography>
-        <NSTypography variant="paragraph-sb-p3" color={BRAND_COLOR}>
+        <Typography variant="h3">Parsed JD Profile</Typography>
+        <Typography variant="body" as="span" className="font-semibold" style={{ color: BRAND_COLOR }}>
           {isExpanded ? "Hide" : "Show"}
-        </NSTypography>
+        </Typography>
       </button>
 
       {isExpanded && (
         <div className="flex flex-col gap-3">
           {jobProfile.requiredSkills.length > 0 && (
             <div>
-              <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 Required skills
-              </NSTypography>
-              <NSTypography variant="paragraph-md-p3">
-                {jobProfile.requiredSkills.map((s) => s.name).join(", ")}
-              </NSTypography>
+              </Typography>
+              <Typography variant="caption">{jobProfile.requiredSkills.map((s) => s.name).join(", ")}</Typography>
             </div>
           )}
           {jobProfile.preferredSkills.length > 0 && (
             <div>
-              <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 Preferred skills
-              </NSTypography>
-              <NSTypography variant="paragraph-md-p3">
-                {jobProfile.preferredSkills.map((s) => s.name).join(", ")}
-              </NSTypography>
+              </Typography>
+              <Typography variant="caption">{jobProfile.preferredSkills.map((s) => s.name).join(", ")}</Typography>
             </div>
           )}
           {jobProfile.requiredExperience && (
             <div>
-              <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 Experience
-              </NSTypography>
-              <NSTypography variant="paragraph-md-p3">
+              </Typography>
+              <Typography variant="caption">
                 {jobProfile.requiredExperience.minMonths}+ months
                 {jobProfile.requiredExperience.domain ? `, domain "${jobProfile.requiredExperience.domain}"` : ""}
-              </NSTypography>
+              </Typography>
             </div>
           )}
           {jobProfile.educationRequirements && jobProfile.educationRequirements.length > 0 && (
             <div>
-              <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 Education
-              </NSTypography>
+              </Typography>
               {jobProfile.educationRequirements.map((req, index) => (
-                <NSTypography key={index} variant="paragraph-md-p3">
+                <Typography key={index} variant="caption">
                   {formatDegreeList(req.degree)}
                   {req.field ? `, ${formatDegreeList(req.field)}` : ""}
                   {req.minCgpa ? `, CGPA ≥ ${req.minCgpa}` : ""}
-                </NSTypography>
+                </Typography>
               ))}
             </div>
           )}
           <div>
-            <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+            <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
               Responsibilities
-            </NSTypography>
-            <NSTypography variant="paragraph-md-p3" color={jobProfile.responsibilities.length === 0 ? MUTED_TEXT_COLOR : undefined}>
+            </Typography>
+            <Typography variant="caption" style={jobProfile.responsibilities.length === 0 ? { color: MUTED_TEXT_COLOR } : undefined}>
               {jobProfile.responsibilities.length > 0 ? jobProfile.responsibilities.join("; ") : "(none extracted)"}
-            </NSTypography>
+            </Typography>
           </div>
         </div>
       )}
@@ -111,6 +107,7 @@ function ParsedProfileSection({ jobProfile }: { jobProfile: JobProfile }) {
   );
 }
 
+/** docs/screens.md §8.8 (feature 27o): migrated off Grauity onto lib/ui. */
 export function JobDetailDashboard({
   job,
   jobProfile,
@@ -257,18 +254,19 @@ export function JobDetailDashboard({
 
       <Card className="flex flex-col gap-3 bg-gray-50">
           <div className="flex items-center justify-between">
-            {job.company && (
-              <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
-                {job.company}
-              </NSTypography>
-            )}
+            {job.company && <Typography variant="body" style={{ color: MUTED_TEXT_COLOR }}>{job.company}</Typography>}
             <div className="flex items-center gap-2">
-              <NSTypography variant="paragraph-sb-p3" color={isLive ? BRAND_COLOR : MUTED_TEXT_COLOR}>
+              <Typography
+                variant="body"
+                as="span"
+                className="font-semibold"
+                style={{ color: isLive ? BRAND_COLOR : MUTED_TEXT_COLOR }}
+              >
                 Listing: {isLive ? "Live" : "Draft"}
-              </NSTypography>
-              <NSButton variant="tertiary" size="small" loading={isTogglingListing} onClick={handleToggleListing}>
-                {isLive ? "Set to Draft" : "Make Live"}
-              </NSButton>
+              </Typography>
+              <Button variant="outline" size="sm" disabled={isTogglingListing} onClick={handleToggleListing}>
+                {isTogglingListing ? "Updating…" : isLive ? "Set to Draft" : "Make Live"}
+              </Button>
             </div>
           </div>
 
@@ -280,51 +278,48 @@ export function JobDetailDashboard({
             </div>
           )}
 
-          <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
+          <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
             Results: {publishedMatchRunId ? "Published to students" : "Hidden from students"}
-          </NSTypography>
+          </Typography>
 
-          <div className="flex items-center gap-3 pt-2">
-            <NSButton
-              variant="primary"
-              loading={isTriggering || isRunning}
-              disabled={job.status !== "READY" || !isLive}
-              onClick={handleRunMatching}
-            >
-              {latestRun ? "Re-run Matching" : "Run Matching"}
-            </NSButton>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button disabled={isTriggering || isRunning || job.status !== "READY" || !isLive} onClick={handleRunMatching}>
+              {isTriggering || isRunning ? "Running…" : latestRun ? "Re-run Matching" : "Run Matching"}
+            </Button>
             {latestRun?.status === "COMPLETED" && (
-              <NSButton variant="secondary" loading={isPublishing} onClick={handleTogglePublish}>
-                {isCurrentRunPublished ? "Hide Results" : "Publish Results"}
-              </NSButton>
+              <Button variant="outline" disabled={isPublishing} onClick={handleTogglePublish}>
+                {isPublishing ? "Updating…" : isCurrentRunPublished ? "Hide Results" : "Publish Results"}
+              </Button>
             )}
             {latestRun?.status === "COMPLETED" && (
               <a href={`/api/admin/jobs/${job._id}/export?runId=${latestRun._id}`}>
-                <NSButton variant="tertiary" type="button">
+                <Button variant="ghost" type="button">
                   Export CSV
-                </NSButton>
+                </Button>
               </a>
             )}
             {job.status !== "READY" && (
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 This job description is still processing.
-              </NSTypography>
+              </Typography>
             )}
             {job.status === "READY" && !isLive && (
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 Make this listing Live to run matching.
-              </NSTypography>
+              </Typography>
             )}
           </div>
 
-          {error && <NSAlert variant="error" icon={null} description={error} />}
+          {error && (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
           {latestRun?.status === "FAILED" && (
-            <NSAlert
-              variant="error"
-              icon={null}
-              title="Matching failed"
-              description={latestRun.error?.message ?? "The matching run failed. Please try again."}
-            />
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <span className="font-semibold">Matching failed:</span>{" "}
+              {latestRun.error?.message ?? "The matching run failed. Please try again."}
+            </p>
           )}
       </Card>
 
@@ -332,23 +327,17 @@ export function JobDetailDashboard({
 
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            Results
-          </NSTypography>
+          <Typography variant="h3">Results</Typography>
           {results.length > 0 && (
             <label className="flex items-center gap-2 text-sm text-gray-600">
               Show top
-              <select
-                className="rounded border border-gray-300 px-2 py-1"
-                value={leaderboardSize}
-                onChange={(e) => handleLeaderboardSizeChange(Number(e.target.value))}
-              >
+              <Select value={leaderboardSize} onChange={(e) => handleLeaderboardSizeChange(Number(e.target.value))}>
                 {LEADERBOARD_SIZE_OPTIONS.map((size) => (
                   <option key={size} value={size}>
                     {size}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           )}
         </div>

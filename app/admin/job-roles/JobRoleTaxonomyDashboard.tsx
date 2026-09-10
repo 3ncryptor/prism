@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { JobRoleTaxonomyEntry } from "@/lib/schemas/jobRoleTaxonomy";
-import { BRAND_COLOR, BRAND_TINT_COLOR, MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR, BRAND_TINT_COLOR, MUTED_TEXT_COLOR } from "@/lib/designTokens";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
+import { Typography } from "@/lib/ui/Typography";
+import { Input } from "@/lib/ui/Input";
+import { Button } from "@/lib/ui/Button";
+import { Badge } from "@/lib/ui/Badge";
 
 type EntryWithUsage = JobRoleTaxonomyEntry & { usageCount: number };
 
@@ -22,10 +25,11 @@ interface FormState {
 const EMPTY_FORM: FormState = { editingId: null, canonicalName: "", displayName: "" };
 
 /**
- * docs/screens.md §4.11 (feature 27e): "deliberately near-identical in
- * structure to the existing Skill Taxonomy admin page" — same master-
- * detail layout (§6.4, feature 27a2), minus category/aliases since job
- * roles are a flat list, not a categorized taxonomy.
+ * docs/screens.md §4.11 (feature 27e), visual pass in §8.9 (feature 27o):
+ * "deliberately near-identical in structure to the existing Skill
+ * Taxonomy admin page" — same master-detail layout (§6.4, feature 27a2),
+ * minus category/aliases since job roles are a flat list, not a
+ * categorized taxonomy. Migrated off Grauity onto lib/ui.
  */
 export function JobRoleTaxonomyDashboard({ initialRoles }: JobRoleTaxonomyDashboardProps) {
   const [roles, setRoles] = useState(initialRoles);
@@ -99,13 +103,13 @@ export function JobRoleTaxonomyDashboard({ initialRoles }: JobRoleTaxonomyDashbo
     <div className="flex w-full flex-col gap-6">
       <PageHeader title="Job Roles" />
 
-      <div className="flex gap-6">
+      <div className="flex flex-wrap gap-6">
         <Card className="flex w-64 shrink-0 flex-col gap-1 p-3">
           <div className="max-h-[28rem] overflow-y-auto">
             {roles.length === 0 ? (
-              <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+              <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 No job roles yet.
-              </NSTypography>
+              </Typography>
             ) : (
               roles.map((entry) => {
                 const isSelected = entry._id === form.editingId;
@@ -117,76 +121,79 @@ export function JobRoleTaxonomyDashboard({ initialRoles }: JobRoleTaxonomyDashbo
                     className="w-full rounded-md px-3 py-2 text-left transition-colors duration-150 ease-out"
                     style={isSelected ? { backgroundColor: BRAND_TINT_COLOR } : undefined}
                   >
-                    <NSTypography
-                      variant="paragraph-sb-p3"
+                    <Typography
+                      variant="body"
                       as="span"
-                      color={isSelected ? BRAND_COLOR : entry.isActive ? undefined : MUTED_TEXT_COLOR}
+                      style={{ color: isSelected ? BRAND_COLOR : entry.isActive ? undefined : MUTED_TEXT_COLOR }}
+                      className={isSelected ? "font-semibold" : undefined}
                     >
                       <span style={!entry.isActive ? { textDecoration: "line-through" } : undefined}>
                         {entry.displayName}
                       </span>
-                    </NSTypography>
+                    </Typography>
                   </button>
                 );
               })
             )}
           </div>
-          <NSButton type="button" variant="tertiary" size="small" onClick={() => setForm(EMPTY_FORM)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setForm(EMPTY_FORM)}>
             + Add role
-          </NSButton>
+          </Button>
         </Card>
 
-        <Card as="form" onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3 bg-gray-50">
-          <NSTypography variant="heading-sb-h4" as="h2">
-            {form.editingId ? "Edit job role" : "Add a job role"}
-          </NSTypography>
+        <Card as="form" onSubmit={handleSubmit} className="flex min-w-[280px] flex-1 flex-col gap-3 bg-gray-50">
+          <Typography variant="h3">{form.editingId ? "Edit job role" : "Add a job role"}</Typography>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <NSTextField
-              name="canonicalName"
-              label="Canonical name"
-              placeholder="e.g. data science"
-              value={form.canonicalName}
-              isDisabled={Boolean(form.editingId)}
-              onChange={(e) => setForm((f) => ({ ...f, canonicalName: e.target.value }))}
-            />
-            <NSTextField
-              name="displayName"
-              label="Display name"
-              placeholder="e.g. Data Science"
-              value={form.displayName}
-              onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-            />
+            <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+              Canonical name
+              <Input
+                name="canonicalName"
+                placeholder="e.g. data science"
+                value={form.canonicalName}
+                disabled={Boolean(form.editingId)}
+                onChange={(e) => setForm((f) => ({ ...f, canonicalName: e.target.value }))}
+              />
+            </label>
+            <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+              Display name
+              <Input
+                name="displayName"
+                placeholder="e.g. Data Science"
+                value={form.displayName}
+                onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+              />
+            </label>
           </div>
 
           {selectedEntry && (
-            <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+            <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
               Usage: {selectedEntry.usageCount} reference{selectedEntry.usageCount === 1 ? "" : "s"}
-            </NSTypography>
+            </Typography>
           )}
 
           <div className="flex items-center gap-3">
-            <NSButton type="submit" variant="primary" loading={isSaving}>
-              {form.editingId ? "Save changes" : "Add role"}
-            </NSButton>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving…" : form.editingId ? "Save changes" : "Add role"}
+            </Button>
             {selectedEntry?.isActive && (
-              <NSButton type="button" variant="tertiary" onClick={() => handleDeactivate(selectedEntry._id)}>
+              <Button type="button" variant="outline" onClick={() => handleDeactivate(selectedEntry._id)}>
                 Deactivate
-              </NSButton>
+              </Button>
             )}
             {form.editingId && (
-              <NSButton type="button" variant="tertiary" onClick={() => setForm(EMPTY_FORM)}>
+              <Button type="button" variant="ghost" onClick={() => setForm(EMPTY_FORM)}>
                 Cancel
-              </NSButton>
+              </Button>
             )}
           </div>
 
-          {selectedEntry && (
-            <NSPill color={selectedEntry.isActive ? "success" : "error"} isActive>
-              {selectedEntry.isActive ? "Active" : "Inactive"}
-            </NSPill>
-          )}
+          {selectedEntry && <Badge tone={selectedEntry.isActive ? "success" : "error"}>{selectedEntry.isActive ? "Active" : "Inactive"}</Badge>}
 
-          {error && <NSAlert variant="error" icon={null} description={error} />}
+          {error && (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
         </Card>
       </div>
     </div>

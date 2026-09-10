@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth/guard";
 import { signOut } from "@/lib/auth/config";
-import { ClientOnlyAppShell } from "@/lib/layout/ClientOnlyAppShell";
+import { AppShell } from "@/lib/layout/AppShell";
 import type { SidebarNavItem } from "@/lib/layout/Sidebar";
 
 const ADMIN_NAV_ITEMS: SidebarNavItem[] = [
@@ -21,13 +21,13 @@ export default async function AdminRootLayout({ children }: LayoutProps<"/admin"
   const session = await requireRole("ADMIN");
 
   return (
-    <ClientOnlyAppShell
+    <AppShell
       navItems={ADMIN_NAV_ITEMS}
       name={session.user.name ?? ""}
       email={session.user.email ?? ""}
       onSignOut={handleSignOut}
     >
       {children}
-    </ClientOnlyAppShell>
+    </AppShell>
   );
 }

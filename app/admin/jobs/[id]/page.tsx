@@ -4,7 +4,7 @@ import { jobRepository } from "@/lib/db/repositories/jobRepository";
 import { jobProfileRepository } from "@/lib/db/repositories/jobProfileRepository";
 import { matchRunRepository } from "@/lib/db/repositories/matchRunRepository";
 import { matchResultRepository } from "@/lib/db/repositories/matchResultRepository";
-import { ClientOnlyJobDetail } from "@/app/admin/jobs/[id]/ClientOnlyJobDetail";
+import { JobDetailDashboard } from "@/app/admin/jobs/[id]/JobDetailDashboard";
 import type { FitBucket } from "@/lib/matching/types";
 
 /** buildPlan.md §84/§85 — feature #22. Shell (identity/sign-out) lives in app/admin/layout.tsx (feature 27a). */
@@ -28,7 +28,7 @@ export default async function JobDetailPage({ params }: PageProps<"/admin/jobs/[
   }
 
   return (
-    <ClientOnlyJobDetail
+    <JobDetailDashboard
       job={job}
       jobProfile={jobProfile}
       initialLatestRun={latestRun}
