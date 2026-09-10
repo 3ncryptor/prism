@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { Logo } from "@/lib/ui/Logo";
 
 /**
  * docs/screens.md §4.2-4.4 (feature 27b, extended by 27g): shared shell for
@@ -14,8 +15,8 @@ import Link from "next/link";
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 bg-white px-6 py-12">
-      <Link href="/" className="text-lg font-semibold text-gray-900">
-        Prism
+      <Link href="/">
+        <Logo />
       </Link>
       {/* role="main", not a literal <main>: Grauity's globally-imported CSS
           resets semantic elements (main/nav/header) to display:block,

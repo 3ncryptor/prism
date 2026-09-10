@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BRAND_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR } from "@/lib/designTokens";
+import { Input } from "@/lib/ui/Input";
+import { Button } from "@/lib/ui/Button";
 
-/** docs/screens.md §4.3 (feature 27g): centered card inside AuthLayout's shell. */
+/** docs/screens.md §4.3 (feature 27g, motion/visual pass in 27k): centered card inside AuthLayout's shell. */
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,24 +53,11 @@ export default function ForgotPasswordPage() {
           )}
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Email
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ outlineColor: BRAND_COLOR }}
-            />
+            <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            style={{ backgroundColor: BRAND_COLOR }}
-            className="mt-2 rounded-md px-4 py-2 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
+          <Button type="submit" disabled={isSubmitting} className="mt-2">
             {isSubmitting ? "Sending…" : "Send reset link"}
-          </button>
+          </Button>
         </form>
       )}
 

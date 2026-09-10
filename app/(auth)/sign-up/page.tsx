@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BRAND_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR } from "@/lib/designTokens";
+import { Input } from "@/lib/ui/Input";
+import { Button } from "@/lib/ui/Button";
 
-/** docs/screens.md §7.1 (feature 28): centered card inside AuthLayout's shell. */
+/** docs/screens.md §7.1 (feature 28, motion/visual pass in feature 27k): centered card inside AuthLayout's shell. */
 export default function SignUpPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -69,62 +71,37 @@ export default function SignUpPage() {
           )}
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Name
-            <input
-              type="text"
-              autoComplete="name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ outlineColor: BRAND_COLOR }}
-            />
+            <Input type="text" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Email
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ outlineColor: BRAND_COLOR }}
-            />
+            <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Password
-            <input
+            <Input
               type="password"
               autoComplete="new-password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ outlineColor: BRAND_COLOR }}
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Confirm password
-            <input
+            <Input
               type="password"
               autoComplete="new-password"
               required
               minLength={8}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ outlineColor: BRAND_COLOR }}
             />
           </label>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            style={{ backgroundColor: BRAND_COLOR }}
-            className="mt-2 rounded-md px-4 py-2 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
+          <Button type="submit" disabled={isSubmitting} className="mt-2">
             {isSubmitting ? "Creating account…" : "Create account"}
-          </button>
+          </Button>
         </form>
       )}
 

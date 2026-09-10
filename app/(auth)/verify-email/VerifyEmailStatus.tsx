@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BRAND_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR } from "@/lib/designTokens";
+import { Input } from "@/lib/ui/Input";
+import { Button } from "@/lib/ui/Button";
 
 type Status = "verifying" | "success" | "invalid";
 
@@ -10,7 +12,7 @@ interface VerifyEmailStatusProps {
   token: string | null;
 }
 
-/** docs/screens.md §7.2 (feature 28). */
+/** docs/screens.md §7.2 (feature 28, motion/visual pass in 27k). */
 export function VerifyEmailStatus({ token }: VerifyEmailStatusProps) {
   const [status, setStatus] = useState<Status>(token ? "verifying" : "invalid");
   const [resendEmail, setResendEmail] = useState("");
@@ -89,35 +91,23 @@ export function VerifyEmailStatus({ token }: VerifyEmailStatusProps) {
       </p>
 
       {!showResendForm ? (
-        <button
-          type="button"
-          onClick={() => setShowResendForm(true)}
-          style={{ backgroundColor: BRAND_COLOR }}
-          className="rounded-md px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
-        >
+        <Button type="button" onClick={() => setShowResendForm(true)}>
           Request a new link
-        </button>
+        </Button>
       ) : resendMessage ? (
         <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
           {resendMessage}
         </p>
       ) : (
         <form onSubmit={handleResend} className="flex flex-col gap-2">
-          <input
+          <Input
             type="email"
             required
             placeholder="Your email"
             value={resendEmail}
             onChange={(e) => setResendEmail(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-gray-900"
           />
-          <button
-            type="submit"
-            style={{ backgroundColor: BRAND_COLOR }}
-            className="rounded-md px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
-          >
-            Send new link
-          </button>
+          <Button type="submit">Send new link</Button>
         </form>
       )}
     </div>

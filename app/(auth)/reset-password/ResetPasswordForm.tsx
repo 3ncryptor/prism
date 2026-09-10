@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BRAND_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR } from "@/lib/designTokens";
+import { Input } from "@/lib/ui/Input";
+import { Button } from "@/lib/ui/Button";
 
 interface ResetPasswordFormProps {
   token: string;
 }
 
-/** docs/screens.md §4.4 (feature 27g). */
+/** docs/screens.md §4.4 (feature 27g, motion/visual pass in 27k). */
 export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -66,38 +68,29 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         )}
         <label className="flex flex-col gap-1 text-sm text-gray-700">
           New password
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             required
             minLength={8}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{ outlineColor: BRAND_COLOR }}
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
           Confirm new password
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             required
             minLength={8}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{ outlineColor: BRAND_COLOR }}
           />
         </label>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          style={{ backgroundColor: BRAND_COLOR }}
-          className="mt-2 rounded-md px-4 py-2 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={isSubmitting} className="mt-2">
           {isSubmitting ? "Resetting…" : "Reset password"}
-        </button>
+        </Button>
       </form>
     </div>
   );

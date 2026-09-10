@@ -6,7 +6,9 @@ import { signIn } from "@/lib/auth/config";
 import { resendVerification } from "@/lib/services/signupService";
 import { checkResendVerificationLimit, RateLimitExceededError } from "@/lib/services/rateLimitService";
 import { getClientIp } from "@/lib/http/getClientIp";
-import { BRAND_COLOR } from "@/lib/grauityTheme";
+import { BRAND_COLOR } from "@/lib/designTokens";
+import { Input } from "@/lib/ui/Input";
+import { Button } from "@/lib/ui/Button";
 
 async function authenticate(formData: FormData) {
   "use server";
@@ -57,16 +59,10 @@ export default async function SignInPage(props: PageProps<"/sign-in">) {
         <div id="signin-error" role="alert" className="flex flex-col gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           <p>Your email isn&apos;t verified yet.</p>
           <form action={resendVerificationAction} className="flex flex-col gap-2">
-            <input
-              name="email"
-              type="email"
-              placeholder="Your email"
-              required
-              className="rounded-md border border-red-200 bg-white px-2 py-1 text-sm text-gray-900"
-            />
-            <button type="submit" className="self-start text-sm font-medium underline">
+            <Input name="email" type="email" placeholder="Your email" required className="border-red-200 bg-white" />
+            <Button type="submit" variant="link" className="self-start">
               Resend verification email
-            </button>
+            </Button>
           </form>
         </div>
       ) : error ? (
@@ -84,37 +80,29 @@ export default async function SignInPage(props: PageProps<"/sign-in">) {
       <form action={authenticate} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm text-gray-700">
           Email
-          <input
+          <Input
             name="email"
             type="email"
             autoComplete="email"
             required
             aria-invalid={Boolean(error)}
             aria-describedby={error ? "signin-error" : undefined}
-            className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{ outlineColor: BRAND_COLOR }}
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
           Password
-          <input
+          <Input
             name="password"
             type="password"
             autoComplete="current-password"
             required
             aria-invalid={Boolean(error)}
             aria-describedby={error ? "signin-error" : undefined}
-            className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{ outlineColor: BRAND_COLOR }}
           />
         </label>
-        <button
-          type="submit"
-          style={{ backgroundColor: BRAND_COLOR }}
-          className="mt-2 rounded-md px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
-        >
+        <Button type="submit" className="mt-2">
           Sign in
-        </button>
+        </Button>
       </form>
 
       <div className="flex flex-col gap-2">

@@ -88,6 +88,28 @@ export function Sidebar({ items }: SidebarProps) {
           </Link>
         );
       })}
+
+      {/*
+       * User-provided (2026-09-11): click-through is the Newton School
+       * Headstart program page from chat; the logo image itself is the
+       * CloudFront asset that was pasted directly into this file's href —
+       * reconciled here as <img src> (logo) + <a href> (destination). A
+       * Cloudflare link is coming later per the same message, not yet given.
+       */}
+      <a
+        href="https://my.newtonschool.co/cs/newton-headstart/applications-of-ai-extxarm4evym"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative z-10 mt-auto flex items-center gap-2 rounded-md px-3 py-2 text-xs text-gray-500 transition-colors duration-150 ease-out hover:bg-gray-200"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- always-external logo asset, not worth next/image's remotePatterns config for one small footer image */}
+        <img
+          src="https://d3dyfaf3iutrxo.cloudfront.net/general/upload/f966abf737734a13852e407e3faeb421.avif"
+          alt="Newton School of Technology"
+          className="h-6 w-6 shrink-0 rounded object-contain"
+        />
+        <span>Newton School of Technology</span>
+      </a>
     </div>
   );
 }
