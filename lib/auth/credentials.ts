@@ -9,6 +9,14 @@ export interface AuthenticatedUser {
   role: UserRole;
 }
 
+/** docs/screens.md §7.7 (feature 28): thrown (not returned as null) so it's distinguishable from "wrong credentials". */
+export class EmailNotVerifiedError extends Error {
+  constructor() {
+    super("Email not verified");
+    this.name = "EmailNotVerifiedError";
+  }
+}
+
 /**
  * Pure credential-verification logic, kept separate from the NextAuth
  * Credentials provider's `authorize` callback so it's unit-testable without
@@ -36,6 +44,10 @@ export async function verifyCredentials(
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     return null;
+  }
+
+  if (!user.emailVerified) {
+    throw new EmailNotVerifiedError();
   }
 
   return { id: user._id, email: user.email, name: user.name, role: user.role };

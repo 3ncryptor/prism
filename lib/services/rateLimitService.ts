@@ -59,6 +59,34 @@ export async function checkMatchRunBurstLimit(adminId: string): Promise<void> {
   });
 }
 
+/**
+ * docs/screens.md §7.7 (feature 28). Keyed by IP, not email — there's no
+ * account yet to key by at signup time. Small capacity, slow refill:
+ * generous enough for a few real students signing up from the same campus
+ * NAT, tight enough to stop mass fake-account creation.
+ */
+export async function checkSignupLimit(ipAddress: string): Promise<void> {
+  await checkTokenBucket({
+    key: `ratelimit:signup:${ipAddress}`,
+    capacity: 5,
+    refillRatePerSecond: 1 / 600, // 1 token per 10 min → ~6/hour sustained
+  });
+}
+
+/** docs/screens.md §7.3/§7.6 (feature 28): same non-enumerating, mail-bomb-prevention shape as checkForgotPasswordLimit. */
+export async function checkResendVerificationLimit(email: string, ipAddress: string): Promise<void> {
+  await checkSlidingWindowLog({
+    key: `ratelimit:resend-verification:email:${email.toLowerCase()}`,
+    limit: 3,
+    windowSeconds: 600,
+  });
+  await checkSlidingWindowLog({
+    key: `ratelimit:resend-verification:ip:${ipAddress}`,
+    limit: 20,
+    windowSeconds: 3600,
+  });
+}
+
 /** docs/screens.md §4.3 (feature 27g). */
 export async function checkForgotPasswordLimit(email: string, ipAddress: string): Promise<void> {
   await checkSlidingWindowLog({

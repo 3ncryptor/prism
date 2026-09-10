@@ -6,4 +6,6 @@
  */
 export interface EmailProvider {
   sendPasswordResetEmail(to: string, resetUrl: string): Promise<void>;
+  /** docs/screens.md §7.7 (feature 28). */
+  sendVerificationEmail(to: string, verifyUrl: string): Promise<void>;
 }

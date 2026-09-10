@@ -36,7 +36,7 @@ function baseDeps() {
   return {
     users: { findByEmail: jest.fn(), updatePassword: jest.fn() },
     tokens: { create: jest.fn(), findValidByTokenHash: jest.fn(), markUsed: jest.fn() },
-    email: { sendPasswordResetEmail: jest.fn() },
+    email: { sendPasswordResetEmail: jest.fn(), sendVerificationEmail: jest.fn() },
     appBaseUrl: "https://prism.example.edu",
   };
 }

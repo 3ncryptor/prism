@@ -117,3 +117,12 @@ export function getSmtpConfig(): SmtpConfig | null {
     from: process.env.SMTP_FROM || user,
   };
 }
+
+/**
+ * docs/screens.md §7.7 (feature 28). Returns null (no restriction) when
+ * unset, same lazy-env-validation philosophy as getSmtpConfig() — dev/CI
+ * never need this configured to exercise signup.
+ */
+export function getSignupAllowedEmailDomain(): string | null {
+  return process.env.SIGNUP_EMAIL_DOMAIN || null;
+}

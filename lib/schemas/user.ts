@@ -20,6 +20,12 @@ export const userSchema = z.object({
   rollNumber: nullish(z.string()),
   branch: nullish(z.string()),
   batchYear: nullish(z.number()),
+  // docs/screens.md §7.7 (feature 28): null until the emailed verification
+  // link is clicked. Only the self-serve signup path (signupService)
+  // creates a user with this null — every other creation path (seed,
+  // admin-provisioning) defaults it to "already verified" since there's
+  // nothing to verify for an account nobody self-registered.
+  emailVerified: nullish(z.date()),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

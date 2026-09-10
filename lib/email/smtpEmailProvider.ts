@@ -1,6 +1,11 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { getSmtpConfig, type SmtpConfig } from "@/lib/config/env";
-import { buildPasswordResetEmailHtml, buildPasswordResetEmailText } from "@/lib/email/emailTemplates";
+import {
+  buildPasswordResetEmailHtml,
+  buildPasswordResetEmailText,
+  buildVerificationEmailHtml,
+  buildVerificationEmailText,
+} from "@/lib/email/emailTemplates";
 import type { EmailProvider } from "@/lib/email/emailProvider";
 
 /** docs/screens.md §4.3/§4.4 (feature 27g). Verified against nodemailer@10's own bundled types (dist/esm/nodemailer.d.ts). */
@@ -25,6 +30,16 @@ export class SmtpEmailProvider implements EmailProvider {
       subject: "Reset your Prism password",
       html: buildPasswordResetEmailHtml(resetUrl),
       text: buildPasswordResetEmailText(resetUrl),
+    });
+  }
+
+  async sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.from,
+      to,
+      subject: "Verify your Prism email",
+      html: buildVerificationEmailHtml(verifyUrl),
+      text: buildVerificationEmailText(verifyUrl),
     });
   }
 }

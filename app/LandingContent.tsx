@@ -64,13 +64,22 @@ export function LandingContent() {
           <p className="text-lg leading-8 text-gray-600">
             AI-assisted placement matching for campus placement cells.
           </p>
-          <Link
-            href="/sign-in"
-            style={{ backgroundColor: BRAND_COLOR }}
-            className="mt-2 rounded-md px-6 py-2.5 font-medium text-white transition-opacity hover:opacity-90"
-          >
-            Sign in to continue
-          </Link>
+          <div className="mt-2 flex items-center gap-3">
+            <Link
+              href="/sign-in"
+              style={{ backgroundColor: BRAND_COLOR }}
+              className="rounded-md px-6 py-2.5 font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Sign in to continue
+            </Link>
+            <Link
+              href="/sign-up"
+              style={{ borderColor: BRAND_COLOR, color: BRAND_COLOR }}
+              className="rounded-md border px-6 py-2.5 font-medium transition-colors hover:bg-indigo-50"
+            >
+              Create an account
+            </Link>
+          </div>
         </div>
 
         <div className="flex w-full max-w-md flex-col items-center gap-4">

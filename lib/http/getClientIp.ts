@@ -6,7 +6,7 @@
  * of the app, so this is a rate-limiting signal (coarser, harder to spoof
  * *consistently* than to spoof once), not an authorization decision.
  */
-export function getClientIp(request: Request): string {
+export function getClientIp(request: Pick<Request, "headers">): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) {
     const firstIp = forwardedFor.split(",")[0]?.trim();

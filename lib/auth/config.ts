@@ -1,7 +1,19 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { userRepository } from "@/lib/db/repositories/userRepository";
-import { verifyCredentials } from "@/lib/auth/credentials";
+import { verifyCredentials, EmailNotVerifiedError } from "@/lib/auth/credentials";
+
+/**
+ * docs/screens.md §7.4/§7.7 (feature 28). A `CredentialsSignin` subclass so
+ * its `code` survives being thrown out of `authorize()` through `signIn()`
+ * into the sign-in page's server action catch block (Auth.js's documented
+ * behavior for frameworks that handle form actions server-side, which
+ * Next.js Server Actions are) — lets Sign In show a distinct "verify your
+ * email" message instead of the generic "invalid credentials" one.
+ */
+class EmailNotVerifiedSignInError extends CredentialsSignin {
+  code = "email-not-verified";
+}
 
 // Explicit, deliberate session lifetime rather than NextAuth's implicit
 // 30-day default — this app holds student PII and gates admin access to
@@ -19,12 +31,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: (credentials) =>
-        verifyCredentials(
-          credentials?.email as string | undefined,
-          credentials?.password as string | undefined,
-          userRepository,
-        ),
+      authorize: async (credentials) => {
+        try {
+          return await verifyCredentials(
+            credentials?.email as string | undefined,
+            credentials?.password as string | undefined,
+            userRepository,
+          );
+        } catch (error) {
+          if (error instanceof EmailNotVerifiedError) {
+            throw new EmailNotVerifiedSignInError();
+          }
+          throw error;
+        }
+      },
     }),
   ],
   callbacks: {

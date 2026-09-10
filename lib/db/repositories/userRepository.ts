@@ -15,6 +15,7 @@ export interface UserDocument {
   rollNumber?: string;
   branch?: string;
   batchYear?: number;
+  emailVerified?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +34,7 @@ function toUser(doc: UserDocument): User {
     rollNumber: doc.rollNumber,
     branch: doc.branch,
     batchYear: doc.batchYear,
+    emailVerified: doc.emailVerified,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -63,20 +65,35 @@ export class UserRepository {
     return docs.map(toUser);
   }
 
+  /**
+   * `emailVerified` defaults to "now" (already verified) when omitted —
+   * every existing caller (seed, admin-provisioning) creates accounts that
+   * never went through self-serve signup, so there's nothing to verify.
+   * Only `signupService` passes `emailVerified: null` explicitly.
+   */
   async create(input: {
     email: string;
     name: string;
     passwordHash: string;
     role: UserRole;
+    emailVerified?: Date | null;
   }): Promise<User> {
     const collection = await this.getCollection();
     const now = new Date();
-    const doc: UserDocument = { _id: new ObjectId(), ...input, createdAt: now, updatedAt: now };
+    const { emailVerified, ...rest } = input;
+    const doc: UserDocument = {
+      _id: new ObjectId(),
+      ...rest,
+      emailVerified: emailVerified === undefined ? now : (emailVerified ?? undefined),
+      createdAt: now,
+      updatedAt: now,
+    };
     await collection.insertOne(doc);
     return toUser(doc);
   }
 
-  /** Used by scripts/seed.ts so re-running the seed is idempotent. */
+  /** Used by scripts/seed.ts so re-running the seed is idempotent. Always
+   * verified — seeded accounts never go through self-serve signup. */
   async upsertByEmail(input: {
     email: string;
     name: string;
@@ -92,6 +109,7 @@ export class UserRepository {
           name: input.name,
           passwordHash: input.passwordHash,
           role: input.role,
+          emailVerified: now,
           updatedAt: now,
         },
         $setOnInsert: { createdAt: now },
@@ -102,6 +120,15 @@ export class UserRepository {
       throw new Error(`upsertByEmail failed to return a document for ${input.email}`);
     }
     return toUser(result);
+  }
+
+  /** docs/screens.md §7.7 (feature 28): marks a self-serve signup verified after the emailed link is clicked. */
+  async markEmailVerified(userId: string): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.findOneAndUpdate(
+      { _id: new ObjectId(userId) },
+      { $set: { emailVerified: new Date(), updatedAt: new Date() } },
+    );
   }
 
   /** docs/screens.md §4.8 (feature 27f). */

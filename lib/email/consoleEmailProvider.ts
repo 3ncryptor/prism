@@ -11,4 +11,8 @@ export class ConsoleEmailProvider implements EmailProvider {
   async sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
     logger.info({ to, resetUrl }, "SMTP not configured — logging password reset link instead of sending it");
   }
+
+  async sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
+    logger.info({ to, verifyUrl }, "SMTP not configured — logging verification link instead of sending it");
+  }
 }

@@ -528,3 +528,329 @@ whichever skill is selected, or a blank "Add skill" form when none is
 selected. Functionally identical to today's `SkillTaxonomyDashboard` (same
 create/edit/deactivate/usage-count logic) — purely a layout change, replacing
 the current top-form-then-flat-table structure.
+
+---
+
+## 7. Feature 28: Self-serve signup + email verification
+
+Written before any code, per this doc's own house rule. Confirmed constraints
+(user decisions): signup is self-serve, restricted to a configurable
+university email domain, and requires clicking an emailed verification link
+before first sign-in. Self-serve signup **only ever creates a STUDENT
+account** — there is no path from this flow to an ADMIN role, ever.
+
+### 7.1 Sign Up (`/sign-up`)
+
+Reuses the `(auth)` layout shell (centered card, wordmark, light-only) —
+same shell as Sign In/Forgot Password.
+
+```
+┌──────────────────────────────────────┐
+│              Prism                    │
+├──────────────────────────────────────┤
+│  Create an account                    │
+│                                        │
+│  Name        [___________________]    │
+│  Email       [___________________]    │
+│  Password    [___________________]    │
+│  Confirm     [___________________]    │
+│                                        │
+│  [        Create account        ]     │
+│                                        │
+│  Already have an account? Sign in     │
+└──────────────────────────────────────┘
+```
+
+**States:**
+- *Idle*: form as above.
+- *Submitting*: button shows a loading state, disabled.
+- *Success*: form replaced entirely by a generic confirmation panel —
+  "Check your email to verify your account." + the same email address they
+  entered, no "Sign in" shortcut yet (they can't sign in until verified) —
+  just a "Back to sign in" link.
+- *Error* (shown above the form, same red-banner style as Sign In's error):
+  - Invalid email format → "Enter a valid email address."
+  - Wrong domain → `"Sign up with your <domain> email address."` (domain
+    read from config, never hardcoded in the message).
+  - Duplicate email → `"An account with this email already exists."` with a
+    "Sign in instead" link right there in the error banner (this is the one
+    auth flow where confirming an email is registered is normal/expected,
+    unlike password reset).
+  - Password too short / mismatch → inline, same pattern as Reset Password's
+    "New password and confirmation don't match."
+  - Rate limited → the shared 429 pattern (all forms already do this).
+
+**Fields → API contract:** `POST /api/auth/signup` `{name, email, password}`
+→ `{message}` (generic) on success, `{error}` + appropriate status
+otherwise. See §7.6 for the full contract.
+
+### 7.2 Verify Email (`/verify-email?token=...`)
+
+Same shell. No form — this page's whole job is to consume the token in its
+URL and report the outcome, mirroring Reset Password's "read token from
+searchParams, render success/error" pattern exactly.
+
+```
+┌──────────────────────────────────────┐
+│              Prism                    │
+├──────────────────────────────────────┤
+│  Verifying your email…                │   ← brief loading state, POSTs
+│                                        │      the token on mount
+└──────────────────────────────────────┘
+
+              ↓ resolves to one of:
+
+┌──────────────────────────────────────┐         ┌──────────────────────────────────────┐
+│  Email verified                       │         │  This link is invalid or has expired  │
+│  Your account is ready. Sign in to     │         │  [ Request a new link ]  (→ resend    │
+│  continue.                             │         │   flow, §7.3)                          │
+│  [ Sign in ]                           │         │                                        │
+└──────────────────────────────────────┘         └──────────────────────────────────────┘
+```
+
+No `?token=` at all → same "invalid or has expired" state immediately, no
+verifying step (identical to how Reset Password handles a missing token
+today).
+
+### 7.3 Resend verification (folded into the "invalid/expired" state above)
+
+"Request a new link" reveals an inline email field + submit, posting to
+`POST /api/auth/resend-verification` `{email}` → always the same generic
+message regardless of whether that email exists or is already verified
+("If that account needs verifying, we've sent a new link") — same
+non-enumerating shape as Forgot Password.
+
+### 7.4 Sign In (`/sign-in`) — additions only
+
+- New line under the form, mirroring "Forgot password?": **"Don't have an
+  account? Sign up"** → `/sign-up`.
+- New error state alongside the existing `?error=1` ("Invalid email or
+  password"): `?error=2` → **"Your email isn't verified yet."** with a
+  "Resend verification email" link/button right in the error banner (posts
+  to the same resend endpoint as §7.3).
+
+### 7.5 Landing page (`/`) — addition only
+
+Hero gets a second, secondary CTA next to "Sign in to continue": **"Create
+an account"**, styled as an outline/ghost button (brand-colored border and
+text, not filled) so the primary "Sign in" action still reads as primary.
+
+### 7.6 API contract
+
+```
+POST /api/auth/signup
+  body: { name: string, email: string, password: string }
+  200 { message: string }              — generic, always the same copy
+  400 { error: string }                — validation, wrong domain, duplicate email
+  429 { error: string }                — rate limited (Retry-After header, same as other endpoints)
+
+POST /api/auth/verify-email
+  body: { token: string }
+  200 { success: true }
+  400 { error: "This verification link is invalid or has expired." }
+
+POST /api/auth/resend-verification
+  body: { email: string }
+  200 { message: string }              — generic, non-enumerating
+  429 { error: string }
+```
+
+### 7.7 Data/behavior notes
+
+- New `User.emailVerified: Date | null` field. `null` until the link is
+  clicked.
+- Verification token: identical shape/lifecycle to the existing password
+  reset token (SHA-256 hash stored, never the raw token; single-use;
+  time-limited) — new sibling collection, not a reuse of the password-reset
+  one (different purpose, different expiry window: verification links live
+  longer, e.g. 24h, since there's no urgency the way a "someone requested
+  your password be reset" link has).
+- Domain check reads a `SIGNUP_EMAIL_DOMAIN` env var; unset = no
+  restriction (keeps dev/CI unblocked, same lazy-env-validation philosophy
+  as every other scoped env accessor in `lib/config/env.ts`).
+- Rate limiting: token bucket keyed by IP (no account exists yet to key by
+  email) — same primitive already used for resume/JD upload, not a new
+  algorithm.
+- `verifyCredentials()` gains a third outcome beyond "ok"/"null": unverified
+  accounts get a distinguishable rejection so Sign In can show §7.4's
+  specific message instead of the generic "invalid credentials" one.
+
+---
+
+## 8. UI/UX Rebuild — Screens (Grauity migration + motion system)
+
+This section documents the *rest* of the planned rebuild (beyond §7's
+signup) at the same level of detail as §1-§6 above, so implementation can
+proceed screen-by-screen against a written spec rather than improvised live.
+Two design skills inform this section's visual/motion language
+(`animated-svg-retrace`, `soft-motion-ui-v2`); both are written for Framer
+Motion + shadcn — every pattern below is re-expressed for this repo's actual
+stack (GSAP + Lenis, Tailwind + a new local `cva` component set), never a
+second animation library. See the approved plan
+(`/Users/aryanvibhuti/.claude/plans/woolly-sniffing-walrus.md`) for the full
+reasoning; this section is the buildable screen spec that plan produces.
+
+### 8.0 Design tokens (established once, used everywhere below)
+
+```
+--brand: #4F46E5           --brand-hover: #4338CA        --brand-tint: #EEF2FF
+--radius-card: 2rem        (soft-motion-ui-v2 §2 — full 32px, not a toned-down value)
+--radius-pill: 9999px
+--shadow-rest:  0 8px 30px rgb(15 23 42 / 0.05)
+--shadow-hover: 0 20px 45px rgb(15 23 42 / 0.10)
+```
+Status colors (green/amber/red for buckets, Ready/Failed pills) are
+untouched — brand tokens never substitute for status meaning.
+
+**Color-as-data**: every `JobRoleTaxonomy` entry gets a stable derived color
+(hash canonical name → one of a fixed 6-8 accessible palette pairs), used
+consistently for that role's badge everywhere it appears (resume cards, job
+cards, dashboard coverage rows) — replaces flat "everything is blue" tagging.
+
+### 8.1 New shared primitives (`lib/ui/`, replacing Grauity)
+
+`Button` (variants: brand/outline/ghost/destructive/link — `cva`-driven),
+`Card` (`rounded-[2rem]`, diffuse shadow, lifts + border-tints on hover only
+when the whole card is clickable), `Input`, `Select`, `Checkbox` (styled —
+replaces the native unstyled one currently on the Resumes page), `Badge`
+(pills; also the color-as-data role tag), `Typography`. Every one ships a
+real `:focus-visible` ring in `--brand` and `active:scale-[0.97]` +
+`transition: transform 160ms ease-out` press feedback — no exceptions,
+this is what closes the "no visible keyboard focus anywhere" finding.
+
+### 8.2 Motion primitives (`lib/motion/`, GSAP-driven)
+
+- `useRevealSection` — `ScrollTrigger`-gated fade+rise, the mechanism behind
+  every "stacked section" reveal below. Reduced-motion users get the final
+  state instantly, opacity-only, no transform.
+- `useStagger` — cascades a card grid/list's children in on the same
+  trigger, 60ms apart.
+- `useStrokeRetrace` — the `animated-svg-retrace` skill's choreography
+  (hover/mount/inview/loop triggers; `animateIndices`/`order`/`staggerStep`)
+  ported to GSAP tweening `stroke-dashoffset` (the free `pathLength="1"`
+  trick — no paid DrawSVGPlugin). Reserved for load-bearing SVG moments
+  only (wordmark, empty-state illustrations, the scoring-weights bar) —
+  **not** a general icon system; AGENTS.md's no-icons rule stays in force
+  for nav/status/buttons.
+- Sidebar active-item indicator becomes a GSAP-animated `<span>` sliding to
+  the active link's measured position, replacing the flat background swap.
+
+### 8.3 Homepage (`/`) — rebuilt as stacked `RevealSection`s
+
+```
+[Nav — sticky, blurs on scroll]
+[Hero — 2 ambient blurred brand-tint blobs behind the existing headline/
+ subhead; "Sign in to continue" (primary) + "Create an account" (outline,
+ §7.5) side by side; a retrace-drawn small diagram: resume → JD → score]
+[How it works — existing 3 steps, now cascade in via useStagger instead of
+ appearing all at once]
+[NEW: "Built for placement cells, not job boards" — 3 cards, color-as-data
+ by audience (faculty / students / matching engine), explaining the actual
+ model: students never browse JDs, faculty gets ranked evidence-backed
+ shortlists — the landing page currently doesn't say this at all]
+[Footer — wordmark + sign-in link only]
+```
+
+### 8.4 Sign Out — replaces NextAuth's raw default page entirely
+
+No confirmation screen. TopBar's "Sign out" menu item POSTs directly
+(mirrors how Sign In is already a direct server action, not a redirect
+through a generic NextAuth page) → brief "Signed out" toast → redirect to
+`/`. Closes the single worst visual moment found in the live audit
+(NextAuth's unstyled dark confirmation page inside an otherwise all-light
+branded app).
+
+### 8.5 Student Dashboard (`/student`) — rebuilt with real aggregations
+
+Replaces today's single-arbitrary-resume card (a leftover from before the
+multi-resume model) with stacked `RevealSection`s, each backed by
+`lib/services/studentDashboardService.ts` (new — reuses existing
+repositories, no new data model beyond what §7/multi-resume already added):
+
+```
+[Resume coverage]
+  "Published for 2 of 6 roles"
+  ● Data Science  ● Software Development   ○ Product   ○ Design  ...
+  (filled pill = published resume for that role, outlined = gap — each a
+  color-as-data role badge; clicking a gap deep-links to Resumes with that
+  role pre-selected in the upload form)
+
+[Outcome summary]
+  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+  │ Best Fit  1 │ │ Moderate  0 │ │ Low Fit   2 │   ← each tinted in its
+  └─────────────┘ └─────────────┘ └─────────────┘     own bucket color now,
+                                                        not black-on-white
+[Recent results]
+  Machine Learning Engineer · DataCorp        Low Fit    →
+  (top 3 published results, "View all" → Applications)
+
+[Profile completeness]
+  "Profile 60% complete" + thin progress bar + "Complete your profile →"
+
+[Skills snapshot]
+  existing tag cloud, now color-as-data by role instead of flat blue
+```
+
+Data source for "Outcome summary"/"Recent results": the same
+published-vs-under_review gating already implemented in
+`app/api/matches/route.ts` — reused, not reimplemented.
+
+### 8.6 Student Resumes / Applications / Profile
+
+Structural layout unchanged from §4.6-§4.8 — this is a visual/motion pass:
+new `Card`/`Checkbox` primitives, role badges become color-as-data,
+humanized failure copy (today's raw `"aborted"` string becomes a real
+sentence, e.g. "Processing was interrupted — try re-uploading."), list
+renders get `useStagger`.
+
+### 8.7 Admin Dashboard (`/admin`) — NEW page; Jobs list moves to `/admin/jobs`
+
+The admin's landing page today is the Jobs list with an upload form bolted
+above it. That becomes its own sidebar item; `/admin` becomes a real
+dashboard, backed by `lib/services/adminDashboardService.ts` (new):
+
+```
+[Needs attention]
+  Jobs that are Ready+Live with no match run yet, or whose latest run is
+  older than N days — one card per job, with "Run Matching" right on the
+  card (no click-through required). This is the highest-value addition:
+  it directly serves "find out who's good for a given JD" by surfacing
+  *where to look next* instead of requiring a click into every job.
+
+[Pipeline overview]
+  Live: 4    Draft: 1    Ready: 5    Still processing: 0
+
+[Candidate pool health]
+  Per job role (from JobRoleTaxonomy), how many students have a published
+  resume tagged for it — surfaces gaps like "40 students, only 2 tagged
+  Data Science" at a glance.
+
+[Aggregate outcomes]
+  Summed Best Fit / Moderate / Low Fit across every live job's latest
+  published run.
+
+[Recent activity]
+  Last N of: JD uploads, completed match runs, publish-results actions
+  (sourced from the existing audit log, not a new logging system).
+```
+
+Sidebar gains "Dashboard" as the first item, above "Jobs."
+
+### 8.8 Admin Jobs list + Job detail
+
+Bucket-colored stat tiles (fixes the audit's color-blind-stat-card
+finding), the decorative dot-grid icon badges on those tiles get dropped
+(flagged as a likely no-icons violation — dropped unless a real reason to
+keep them turns up during implementation), results table rows get a hover
+state + `useStagger` on first render.
+
+### 8.9 Admin Job Roles / Skill Taxonomy / Scoring Config
+
+Job Roles and Skill Taxonomy are already correctly two-pane — token/shadow/
+radius pass only. Skill Taxonomy's internal scrollable list (46 items in a
+448px box, confirmed zero scroll affordance in the live audit) gets a
+visible custom scrollbar + a bottom fade-out cue. Scoring Config is rebuilt
+as two-pane to match the other two (active config summary + version history
+on the left, "create new version" form on the right), and the 6 weight
+inputs gain a live color-as-data horizontal stacked bar that updates as the
+admin types — turning six raw numbers into one glanceable picture.

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { verifyCredentials } from "@/lib/auth/credentials";
+import { verifyCredentials, EmailNotVerifiedError } from "@/lib/auth/credentials";
 import type { User } from "@/lib/schemas/user";
 
 function makeUser(overrides: Partial<User> = {}): User {
@@ -9,6 +9,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     name: "Student One",
     role: "STUDENT",
     passwordHash: "",
+    emailVerified: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -57,5 +58,16 @@ describe("verifyCredentials", () => {
       name: "Student One",
       role: "ADMIN",
     });
+  });
+
+  it("throws EmailNotVerifiedError when credentials are correct but the account isn't verified", async () => {
+    const passwordHash = await bcrypt.hash("correct-password", 10);
+    const users = {
+      findByEmail: jest.fn().mockResolvedValue(makeUser({ passwordHash, emailVerified: undefined })),
+    };
+
+    await expect(verifyCredentials("student1@prism.dev", "correct-password", users)).rejects.toThrow(
+      EmailNotVerifiedError,
+    );
   });
 });
