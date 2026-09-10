@@ -122,6 +122,12 @@ export class ResumeRepository {
     const collection = await this.getCollection();
     return collection.countDocuments({ jobRole: canonicalName });
   }
+
+  /** docs/screens.md §8.7 (feature 27n): "candidate pool health" — published resumes per role. */
+  async countActiveByRole(canonicalName: string): Promise<number> {
+    const collection = await this.getCollection();
+    return collection.countDocuments({ jobRole: canonicalName, isActive: true });
+  }
 }
 
 async function defaultCollection(): Promise<Collection<ResumeDocument>> {

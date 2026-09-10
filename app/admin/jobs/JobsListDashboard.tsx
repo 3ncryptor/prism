@@ -10,11 +10,17 @@ import { MUTED_TEXT_COLOR, BRAND_COLOR } from "@/lib/grauityTheme";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { EmptyState } from "@/lib/layout/EmptyState";
 
-interface AdminDashboardProps {
+interface JobsListDashboardProps {
   initialJobs: Job[];
 }
 
-export function AdminDashboard({ initialJobs }: AdminDashboardProps) {
+/**
+ * docs/screens.md §8.7 (feature 27n): moved from /admin (now the real
+ * dashboard, lib/services/adminDashboardService.ts) to its own sidebar
+ * item. Content/behavior unchanged here — the Grauity visual pass for
+ * this page is its own line item, docs/screens.md §8.8 (feature 27o).
+ */
+export function JobsListDashboard({ initialJobs }: JobsListDashboardProps) {
   const [jobs, setJobs] = useState(initialJobs);
 
   async function refreshJobs() {

@@ -1,11 +1,15 @@
 import { requireRole } from "@/lib/auth/guard";
-import { jobRepository } from "@/lib/db/repositories/jobRepository";
-import { ClientOnlyAdminDashboard } from "@/app/admin/ClientOnlyAdminDashboard";
+import { getAdminDashboardData } from "@/lib/services/adminDashboardService";
+import { AdminDashboardOverview } from "@/app/admin/AdminDashboardOverview";
 
-/** buildPlan.md §84, §106 — feature #22. Shell (identity/sign-out) lives in app/admin/layout.tsx (feature 27a). */
+/**
+ * buildPlan.md §84, §106 — feature #22, rebuilt as a real dashboard in
+ * feature 27n (docs/screens.md §8.7). The Jobs list that used to live
+ * here moved to /admin/jobs.
+ */
 export default async function AdminHome() {
   await requireRole("ADMIN");
-  const jobs = await jobRepository.list();
+  const data = await getAdminDashboardData();
 
-  return <ClientOnlyAdminDashboard initialJobs={jobs} />;
+  return <AdminDashboardOverview data={data} />;
 }

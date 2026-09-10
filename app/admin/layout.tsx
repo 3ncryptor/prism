@@ -4,7 +4,8 @@ import { ClientOnlyAppShell } from "@/lib/layout/ClientOnlyAppShell";
 import type { SidebarNavItem } from "@/lib/layout/Sidebar";
 
 const ADMIN_NAV_ITEMS: SidebarNavItem[] = [
-  { label: "Jobs", href: "/admin", matchPrefixes: ["/admin/jobs"] },
+  { label: "Dashboard", href: "/admin" },
+  { label: "Jobs", href: "/admin/jobs", matchPrefixes: ["/admin/jobs"] },
   { label: "Job Roles", href: "/admin/job-roles" },
   { label: "Skill Taxonomy", href: "/admin/skill-taxonomy" },
   { label: "Scoring Config", href: "/admin/scoring-configs" },
