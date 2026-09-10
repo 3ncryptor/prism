@@ -1,18 +1,18 @@
 import type { ReactNode } from "react";
-import { NSTypography } from "@newtonschool/grauity";
+import { Typography } from "@/lib/ui/Typography";
 
 interface PageHeaderProps {
   title: string;
   actions?: ReactNode;
 }
 
-/** docs/screens.md §1: replaces the repeated title+action-buttons-row markup on every existing dashboard. */
+/** buildPlan.md §120 (feature 27j): migrated off Grauity's NSTypography onto lib/ui/Typography. */
 export function PageHeader({ title, actions }: PageHeaderProps) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <NSTypography variant="heading-sb-h2" as="h1">
+      <Typography variant="h1" as="h1">
         {title}
-      </NSTypography>
+      </Typography>
       {actions && <div className="flex items-center gap-3">{actions}</div>}
     </div>
   );

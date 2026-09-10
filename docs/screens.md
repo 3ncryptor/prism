@@ -531,7 +531,7 @@ the current top-form-then-flat-table structure.
 
 ---
 
-## 7. Feature 28: Self-serve signup + email verification
+## 7. Feature 27h: Self-serve signup + email verification
 
 Written before any code, per this doc's own house rule. Confirmed constraints
 (user decisions): signup is self-serve, restricted to a configurable
@@ -677,7 +677,7 @@ POST /api/auth/resend-verification
 
 ---
 
-## 8. UI/UX Rebuild — Screens (Grauity migration + motion system)
+## 8. Features 27i-27o: UI/UX Rebuild — Screens (Grauity migration + motion system)
 
 This section documents the *rest* of the planned rebuild (beyond §7's
 signup) at the same level of detail as §1-§6 above, so implementation can

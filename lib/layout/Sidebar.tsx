@@ -1,9 +1,11 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NSTypography } from "@newtonschool/grauity";
-import { BRAND_COLOR, BRAND_TINT_COLOR } from "@/lib/grauityTheme";
+import { Typography } from "@/lib/ui/Typography";
+import { cn } from "@/lib/ui/cn";
+import { useActiveIndicator } from "@/lib/motion/useActiveIndicator";
 
 export interface SidebarNavItem {
   label: string;
@@ -39,13 +41,19 @@ function isItemActive(item: SidebarNavItem, pathname: string): boolean {
 }
 
 /**
- * docs/screens.md §1/§2. Plain CSS transitions (150ms, no GSAP) for the
- * hover/active state deliberately — per the emil-design-eng skill's
- * frequency rule, sidebar items are clicked many times a day, so the
- * correct move is a fast, cheap transition, not an elaborate animation.
+ * buildPlan.md §120 (feature 27j): migrated off Grauity's NSTypography;
+ * the active-item highlight is now a GSAP-animated sliding indicator
+ * (lib/motion/useActiveIndicator, ports soft-motion-ui-v2 §8's Framer
+ * `layoutId` nav underline to GSAP) instead of a flat background swap.
+ * Still plain CSS transitions (150ms) for hover — per emil-design-eng,
+ * sidebar items are clicked many times a day, so hover feedback stays
+ * fast/cheap rather than elaborate.
  */
 export function Sidebar({ items }: SidebarProps) {
   const pathname = usePathname();
+  const activeItemRef = useRef<HTMLAnchorElement>(null);
+  const activeIndex = items.findIndex((item) => isItemActive(item, pathname));
+  const indicatorRef = useActiveIndicator(activeItemRef, [activeIndex]);
 
   return (
     // A plain <nav> renders here as display:block despite the `flex`
@@ -55,25 +63,28 @@ export function Sidebar({ items }: SidebarProps) {
     // — Grauity's semantic-element reset (nav/header/etc -> block) wins
     // over Tailwind's layered `.flex` utility. `role="navigation"` keeps
     // the same accessibility semantics without hitting that reset.
-    <div role="navigation" className="flex w-56 shrink-0 flex-col gap-1 border-r border-gray-200 bg-gray-50 p-4">
+    <div role="navigation" className="relative flex w-56 shrink-0 flex-col gap-1 border-r border-gray-200 bg-gray-50 p-4">
+      <span
+        ref={indicatorRef}
+        aria-hidden
+        className="pointer-events-none absolute left-4 right-4 z-0 rounded-md bg-brand-tint"
+        style={{ top: 0, height: 0 }}
+      />
       {items.map((item) => {
         const isActive = isItemActive(item, pathname);
         return (
           <Link
             key={item.href}
             href={item.href}
-            // Background is an inline style, not a Tailwind class, on the
-            // active item: Grauity ships an unlayered anchor-tag reset
-            // (background-color: transparent) that otherwise beats
-            // Tailwind's layered utility classes regardless of specificity
-            // — see the display:block note above for the same mechanism.
-            // Inline styles always win.
-            className={`rounded-md px-3 py-2 transition-colors duration-150 ease-out ${!isActive ? "hover:bg-gray-200" : ""}`}
-            style={isActive ? { backgroundColor: BRAND_TINT_COLOR } : undefined}
+            ref={isActive ? activeItemRef : undefined}
+            className={cn(
+              "relative z-10 rounded-md px-3 py-2 transition-colors duration-150 ease-out",
+              !isActive && "hover:bg-gray-200",
+            )}
           >
-            <NSTypography variant="paragraph-sb-p3" as="span" color={isActive ? BRAND_COLOR : undefined}>
+            <Typography variant="body" as="span" className={isActive ? "font-semibold text-brand" : undefined}>
               {item.label}
-            </NSTypography>
+            </Typography>
           </Link>
         );
       })}

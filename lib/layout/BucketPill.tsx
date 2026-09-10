@@ -1,7 +1,7 @@
-import { NSPill } from "@newtonschool/grauity";
+import { Badge } from "@/lib/ui/Badge";
 import type { FitBucket } from "@/lib/matching/types";
 
-const BUCKET_COLOR: Record<FitBucket, "success" | "warning" | "error"> = {
+const BUCKET_TONE: Record<FitBucket, "success" | "warning" | "error"> = {
   BEST_FIT: "success",
   MODERATE_FIT: "warning",
   LOW_FIT: "error",
@@ -17,11 +17,7 @@ interface BucketPillProps {
   bucket: FitBucket;
 }
 
-/** docs/screens.md §1: consolidates the BUCKET_COLOR/LABEL map duplicated across ResultTable and ApplicationsSection. */
+/** buildPlan.md §120 (feature 27j): migrated off Grauity's NSPill onto lib/ui/Badge. */
 export function BucketPill({ bucket }: BucketPillProps) {
-  return (
-    <NSPill color={BUCKET_COLOR[bucket]} isActive>
-      {BUCKET_LABEL[bucket]}
-    </NSPill>
-  );
+  return <Badge tone={BUCKET_TONE[bucket]}>{BUCKET_LABEL[bucket]}</Badge>;
 }

@@ -6,13 +6,19 @@ type CardProps<T extends ElementType> = {
 } & Omit<ComponentPropsWithoutRef<T>, "as" | "className">;
 
 /**
- * docs/screens.md §1: the `rounded-lg border border-gray-200 p-6` wrapper
- * copy-pasted on every existing page. Polymorphic (`as`) so a form that
+ * buildPlan.md §120 (feature 27j): moved from `rounded-lg` to the new
+ * `rounded-card` (2rem, soft-motion-ui-v2 §2) + diffuse shadow token
+ * instead of a hard border-only look. Polymorphic (`as`) so a form that
  * needs this exact look (e.g. the skill taxonomy create/edit form) can
  * render as a real `<form>` element instead of nesting a `<form>` inside
  * an extra `<div>`.
  */
 export function Card<T extends ElementType = "div">({ as, className = "", ...rest }: CardProps<T>) {
   const Component = as ?? "div";
-  return <Component className={`rounded-lg border border-gray-200 bg-white p-6 ${className}`} {...rest} />;
+  return (
+    <Component
+      className={`rounded-card border border-gray-200 bg-white p-6 shadow-[var(--shadow-card-rest)] ${className}`}
+      {...rest}
+    />
+  );
 }

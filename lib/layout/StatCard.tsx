@@ -1,50 +1,32 @@
-import { NSTypography } from "@newtonschool/grauity";
-import { BRAND_COLOR, BRAND_TINT_COLOR, MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
 import { Card } from "@/lib/layout/Card";
-import { ICONS_BY_NAME, type IconName } from "@/lib/layout/icons";
+import { Typography } from "@/lib/ui/Typography";
+import { MUTED_TEXT_COLOR } from "@/lib/designTokens";
 
 interface StatCardProps {
   label: string;
   value: number | string;
-  icon?: IconName;
-  href?: string;
-  linkLabel?: string;
+  /** Bucket-colored value text (green/amber/red) — falls back to plain gray-900 when omitted. */
+  valueColor?: string;
 }
 
 /**
- * docs/screens.md §6.3 (feature 27a2). `icon` is a lookup key (not a JSX
- * element/component reference) for the same reason `Sidebar`'s
- * `matchPrefixes` is a string array — this data can originate in a Server
- * Component and this keeps it serializable across that boundary.
+ * buildPlan.md §120 (feature 27j). Drops the decorative icon-in-circle
+ * badge this component previously rendered — it added no information
+ * beyond the label already visible, and the live UI audit flagged it as
+ * a likely violation of AGENTS.md's no-icons rule. `valueColor` replaces
+ * it as the meaningful visual signal: the audit's other finding was that
+ * Best Fit/Moderate/Low Fit counts rendered identically regardless of
+ * meaning — this lets a caller tint the number by its own bucket color.
  */
-export function StatCard({ label, value, icon, href, linkLabel }: StatCardProps) {
-  const Icon = icon ? ICONS_BY_NAME[icon] : null;
-
+export function StatCard({ label, value, valueColor }: StatCardProps) {
   return (
     <Card className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <NSTypography variant="paragraph-sb-l1" color={MUTED_TEXT_COLOR}>
-          {label}
-        </NSTypography>
-        {Icon && (
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-            style={{ backgroundColor: BRAND_TINT_COLOR, color: BRAND_COLOR }}
-          >
-            <Icon className="h-4 w-4" />
-          </span>
-        )}
-      </div>
-
-      <NSTypography variant="heading-sb-h3" as="span">
+      <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
+        {label}
+      </Typography>
+      <Typography variant="h1" as="span" className="text-2xl" style={valueColor ? { color: valueColor } : undefined}>
         {value}
-      </NSTypography>
-
-      {href && linkLabel && (
-        <a href={href} style={{ color: BRAND_COLOR }} className="text-sm font-medium hover:underline">
-          {linkLabel} →
-        </a>
-      )}
+      </Typography>
     </Card>
   );
 }

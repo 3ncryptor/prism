@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { NSTypography } from "@newtonschool/grauity";
-import { BRAND_COLOR, MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { Typography } from "@/lib/ui/Typography";
+import { BRAND_COLOR, MUTED_TEXT_COLOR } from "@/lib/designTokens";
 import { ChevronDownIcon } from "@/lib/layout/icons";
 
 interface TopBarProps {
@@ -12,12 +12,9 @@ interface TopBarProps {
 }
 
 /**
- * docs/screens.md §6.2 (feature 27a2): avatar chip + name/email, click to
- * open a small dropdown containing "Sign out" — replaces 27a's bare text +
- * always-visible button. Deliberately no notification bell: no
- * notification system exists in Prism, and a decorative icon with no
- * function is exactly the "looks like it does something, does nothing"
- * pattern this project rejects.
+ * buildPlan.md §120 (feature 27j): migrated off Grauity's NSTypography
+ * onto lib/ui/Typography + lib/designTokens — same avatar-chip + dropdown
+ * behavior as before (docs/screens.md §6.2), no functional change.
  */
 export function TopBar({ name, email, onSignOut }: TopBarProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,12 +51,12 @@ export function TopBar({ name, email, onSignOut }: TopBarProps) {
             {initial}
           </span>
           <span className="flex flex-col items-start">
-            <NSTypography variant="paragraph-sb-p3" as="span">
+            <Typography variant="body" as="span" className="font-semibold">
               {name}
-            </NSTypography>
-            <NSTypography variant="paragraph-md-p4" as="span" color={MUTED_TEXT_COLOR}>
+            </Typography>
+            <Typography variant="caption" as="span" style={{ color: MUTED_TEXT_COLOR }}>
               {email}
-            </NSTypography>
+            </Typography>
           </span>
           <ChevronDownIcon className="h-4 w-4 shrink-0 text-gray-400" />
         </button>
@@ -71,9 +68,9 @@ export function TopBar({ name, email, onSignOut }: TopBarProps) {
                 type="submit"
                 className="w-full rounded-md px-3 py-2 text-left transition-colors duration-150 ease-out hover:bg-gray-100"
               >
-                <NSTypography variant="paragraph-sb-p3" as="span">
+                <Typography variant="body" as="span" className="font-semibold">
                   Sign out
-                </NSTypography>
+                </Typography>
               </button>
             </form>
           </div>

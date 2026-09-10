@@ -4597,3 +4597,68 @@ needing rework):
 - New shared `StatCard` primitive (icon-in-circle badge, label + sublabel, large number, optional "View X →" link) — replaces the plain Best Fit/Moderate/Low Fit numbers on the Job Detail page, and is available for 27c/27e to use where they show any other counts.
 - Retrofit `SkillTaxonomyDashboard` (already shipped, feature #22b) from its top-form-then-table layout to a two-pane master-detail (list left, create/edit detail right), matching the reference's Roles & Permissions pattern — the closest existing Prism admin screen to that reference.
 - No changes to `docs/screens.md` §4.9-4.11 (Admin Jobs, Job Detail, Job Roles) beyond noting they should use `StatCard` and the new accent color when 27c/27e build them — those features aren't built yet, so there's no rework, just building them correctly the first time.
+
+---
+
+# 120. Signup + Full Grauity/Motion UI Rebuild — Feature Batch (2026-09-11)
+
+27g shipped forgot/reset password. Live UI audit right after (chrome-devtools
+screenshots + computed-style inspection across every page, plus two design
+skills the user added) surfaced two more real gaps: no self-serve
+registration exists at all, and every Grauity-based page leaks the library's
+default blue (`#0673F9`) instead of the brand indigo, has zero motion
+anywhere, and has no visible keyboard focus ring. Same reasoning as
+27a-27g: this continues the lettered-insertion convention (§117/§119)
+between #27 and #28 rather than being scheduled as a later phase. Full
+screen-by-screen detail for every item below lives in `docs/screens.md`
+§7-§8; this section is the decision/build-order record, not the wireframes.
+
+**Insert into the §106/§117/§119 build order:**
+
+```text
+...
+27g. Forgot password (self-service, email)
+27h. Self-serve signup + email verification              <- NEW, shipped
+27i. Design system: Tailwind+cva primitives + GSAP motion hooks   <- NEW
+27j. Shared layout primitives migration (Grauity -> lib/ui)        <- NEW
+27k. Homepage + auth pages motion/visual pass                       <- NEW
+27l. Student dashboard rebuild + real aggregations                  <- NEW
+27m. Student resumes/applications/profile visual pass               <- NEW
+27n. Admin dashboard (new page) + real aggregations                 <- NEW
+27o. Admin jobs/job roles/skill taxonomy/scoring config visual pass <- NEW
+28. E2E testing
+29. Performance testing
+30. Deployment
+...
+```
+
+## 120.1 Decisions
+
+| # | Question | Decision | Reason |
+|---|---|---|---|
+| 27 | Self-serve signup: open to any email, or restricted? | **Restricted to a configurable university domain** (`SIGNUP_EMAIL_DOMAIN`, unset = unrestricted) | User's explicit choice — prevents unaffiliated accounts on a campus placement tool; configurable rather than hardcoded so dev/CI stay unblocked |
+| 28 | Does a new account need email verification before it can sign in? | **Yes, required.** Reuses the password-reset token infrastructure's exact shape (SHA-256 hash, single-use, time-limited) as a sibling `emailVerificationTokens` collection | User's explicit choice — confirms the email is real/owned before it enters the matching pool; the SMTP `EmailProvider` abstraction from 27g already supports this with one new method |
+| 29 | Can self-serve signup ever create an ADMIN account? | **Never** — role isn't even a parameter on `registerUser()` | Security boundary; admin accounts stay provision-only regardless of this feature |
+| 30 | Two design skills the user added (`animated-svg-retrace`, `soft-motion-ui-v2`) are written for Framer Motion + shadcn + lucide-react — adopt those libraries, or keep the existing stack? | **Keep GSAP + Lenis** (already installed, unused) and Tailwind; re-implement every pattern the skills describe (viewport reveals, stagger, stroke-retrace) on GSAP instead of adding Framer Motion as a second animation runtime | Avoids the "new library for something the repo already has a way of doing" trap (AGENTS.md); GSAP ScrollTrigger achieves the same effects |
+| 31 | Component system: theme Grauity to match the brand, or migrate off it entirely? | **Migrate every page onto a new local Tailwind + `cva` primitive set** (`lib/ui/`) | User's explicit choice — Grauity's own internals are the root cause of the color leak and several SSR/cascade-layer bugs fought earlier this session; theming it further doesn't fix the underlying friction |
+| 32 | Card border radius: the skill's full `rounded-[2rem]`, or a toned-down value for a utility/admin tool? | **Full `rounded-[2rem]`, per the skill exactly** | User's explicit choice, overriding the toned-down `1.5rem` initially proposed |
+| 33 | Does `/admin` get a real aggregation dashboard, or stay the Jobs list? | **New dedicated `/admin` dashboard** (needs-attention queue, pipeline overview, candidate pool health, aggregate outcomes, recent activity); Jobs list moves to `/admin/jobs` as its own sidebar item | User's explicit choice — directly serves "find out who's good for a given JD" by surfacing where to look next, instead of requiring a click into every job |
+
+## 120.2 New/changed schemas
+
+- `User` gains `emailVerified: Date | null` (nullish) — null until the self-serve signup verification link is clicked; every other creation path (seed, admin-provisioning) defaults it to "already verified."
+- New collection `emailVerificationTokens`: `{_id, userId, tokenHash, expiresAt, usedAt, createdAt}` — same shape as `passwordResetTokens`, longer (24h) expiry.
+- No schema changes for 27i-27o — visual/motion/aggregation work only, reading existing collections.
+
+## 120.3 Status
+
+| Item | Status |
+|---|---|
+| 27h. Self-serve signup + email verification | **Shipped** — backend + frontend, unit tested, verified end-to-end live |
+| 27i. Design system foundation | Not started |
+| 27j. Shared layout primitives migration | Not started |
+| 27k. Homepage + auth pages motion/visual pass | Not started (auth pages have functional additions from 27h, not the full motion/visual pass) |
+| 27l. Student dashboard rebuild | Not started |
+| 27m. Student resumes/applications/profile visual pass | Not started |
+| 27n. Admin dashboard (new) | Not started |
+| 27o. Admin jobs/job roles/skill taxonomy/scoring config visual pass | Not started |

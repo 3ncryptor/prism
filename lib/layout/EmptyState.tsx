@@ -1,17 +1,17 @@
-import { NSTypography } from "@newtonschool/grauity";
-import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { Typography } from "@/lib/ui/Typography";
+import { MUTED_TEXT_COLOR } from "@/lib/designTokens";
 
 interface EmptyStateProps {
   message: string;
 }
 
-/** docs/screens.md §1: shared "no jobs yet" / "no resumes yet" / "no applications yet" placeholder. */
+/** buildPlan.md §120 (feature 27j): migrated off Grauity's NSTypography onto lib/ui/Typography. */
 export function EmptyState({ message }: EmptyStateProps) {
   return (
     <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-300 py-12">
-      <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
+      <Typography variant="body" style={{ color: MUTED_TEXT_COLOR }}>
         {message}
-      </NSTypography>
+      </Typography>
     </div>
   );
 }

@@ -274,9 +274,9 @@ export function JobDetailDashboard({
 
           {bucketCounts && (
             <div className="grid grid-cols-3 gap-4 pt-2">
-              <StatCard label="Best Fit" value={bucketCounts.BEST_FIT} icon="dashboard" />
-              <StatCard label="Moderate" value={bucketCounts.MODERATE_FIT} icon="dashboard" />
-              <StatCard label="Low Fit" value={bucketCounts.LOW_FIT} icon="dashboard" />
+              <StatCard label="Best Fit" value={bucketCounts.BEST_FIT} valueColor="#16a34a" />
+              <StatCard label="Moderate" value={bucketCounts.MODERATE_FIT} valueColor="#d97706" />
+              <StatCard label="Low Fit" value={bucketCounts.LOW_FIT} valueColor="#dc2626" />
             </div>
           )}
 
