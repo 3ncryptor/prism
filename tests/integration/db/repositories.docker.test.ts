@@ -42,22 +42,26 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
     expect(userIndexes.some((i) => i.key.email === 1 && i.unique)).toBe(true);
   });
 
-  it("ResumeRepository: create, get, getActiveByStudent, listByStudent, updateStatus", async () => {
+  it("ResumeRepository: create, get, getActiveByStudent, listByStudent, updateStatus, setActive", async () => {
     const repo = new ResumeRepository(async () =>
       db.collection<ResumeDocument>("resumes"),
     );
 
     const resume = await repo.create({
       studentId: "student-1",
+      label: "Software Dev Resume",
       fileKey: "resumes/student-1/r1.pdf",
       originalName: "resume.pdf",
     });
     expect(resume.status).toBe("UPLOADED");
-    expect(resume.isActive).toBe(true);
+    // docs/screens.md §4.6 (feature 27d): upload no longer auto-publishes.
+    expect(resume.isActive).toBe(false);
 
     await repo.updateStatus(resume._id, "READY");
     expect((await repo.get(resume._id))?.status).toBe("READY");
 
+    expect(await repo.getActiveByStudent("student-1")).toBeNull();
+    await repo.setActive(resume._id, "student-1");
     expect((await repo.getActiveByStudent("student-1"))?._id).toBe(resume._id);
     expect(await repo.listByStudent("student-1")).toHaveLength(1);
 
@@ -67,22 +71,25 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
     );
   });
 
-  it("ResumeRepository: deactivateAllForStudent (buildPlan.md §54 versioning)", async () => {
+  it("ResumeRepository: setActive enforces at most one published resume per student (feature 27d)", async () => {
     const repo = new ResumeRepository(async () =>
       db.collection<ResumeDocument>("resumes"),
     );
 
     const first = await repo.create({
       studentId: "student-versioning",
+      label: "V1",
       fileKey: "k1",
       originalName: "v1.pdf",
     });
-    await repo.deactivateAllForStudent("student-versioning");
+    await repo.setActive(first._id, "student-versioning");
     const second = await repo.create({
       studentId: "student-versioning",
+      label: "V2",
       fileKey: "k2",
       originalName: "v2.pdf",
     });
+    await repo.setActive(second._id, "student-versioning");
 
     expect((await repo.get(first._id))?.isActive).toBe(false);
     expect((await repo.get(second._id))?.isActive).toBe(true);

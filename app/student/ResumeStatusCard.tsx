@@ -1,46 +1,20 @@
-"use client";
-
-import { useRef, useState } from "react";
-import { NSAlert, NSButton, NSPill, NSTypography } from "@newtonschool/grauity";
+import Link from "next/link";
+import { NSAlert, NSPill, NSTypography } from "@newtonschool/grauity";
 import type { Resume } from "@/lib/schemas/resume";
 import { resumeStatusColor, resumeStatusLabel } from "@/app/student/resumeStatusDisplay";
 import { MUTED_TEXT_COLOR } from "@/app/student/theme";
-
-const ACCEPTED_EXTENSIONS = ".pdf,.docx";
+import { BRAND_COLOR } from "@/lib/grauityTheme";
 
 interface ResumeStatusCardProps {
   resume: Resume | null;
-  onUploaded: () => void;
 }
 
-export function ResumeStatusCard({ resume, onUploaded }: ResumeStatusCardProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  async function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    setUploadError(null);
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.set("file", file);
-      const response = await fetch("/api/resumes", { method: "POST", body: formData });
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? "Upload failed. Please try again.");
-      }
-      onUploaded();
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
+/**
+ * docs/screens.md §4.5 (feature 27d): a lighter summary of the currently
+ * published resume — uploading and managing multiple resumes moved to
+ * /student/resumes (§4.6), so this card is read-only plus a link there.
+ */
+export function ResumeStatusCard({ resume }: ResumeStatusCardProps) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-6">
       <div className="flex items-center justify-between gap-4">
@@ -55,12 +29,15 @@ export function ResumeStatusCard({ resume, onUploaded }: ResumeStatusCardProps) 
       </div>
 
       {resume ? (
-        <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
-          {resume.originalName}
-        </NSTypography>
+        <>
+          <NSTypography variant="paragraph-sb-p3">{resume.label}</NSTypography>
+          <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
+            {resume.originalName} · Published for matching
+          </NSTypography>
+        </>
       ) : (
         <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
-          No resume uploaded yet. Upload a PDF or DOCX to get started.
+          No resume published yet. Upload one to get started.
         </NSTypography>
       )}
 
@@ -73,24 +50,9 @@ export function ResumeStatusCard({ resume, onUploaded }: ResumeStatusCardProps) 
         />
       )}
 
-      {uploadError && <NSAlert variant="error" icon={null} description={uploadError} />}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={ACCEPTED_EXTENSIONS}
-        className="sr-only"
-        onChange={handleFileSelected}
-      />
-      <div>
-        <NSButton
-          variant="secondary"
-          loading={isUploading}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {resume ? "Upload a new resume" : "Upload resume"}
-        </NSButton>
-      </div>
+      <Link href="/student/resumes" className="text-sm font-medium" style={{ color: BRAND_COLOR }}>
+        Manage resumes →
+      </Link>
     </div>
   );
 }

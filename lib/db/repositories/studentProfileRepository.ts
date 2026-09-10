@@ -40,6 +40,28 @@ export class StudentProfileRepository {
     return doc ? toStudentProfile(doc) : null;
   }
 
+  /** docs/screens.md §4.6 (feature 27d): "View parsed profile" for a specific resume. */
+  async getByResumeId(resumeId: string): Promise<StudentProfile | null> {
+    const collection = await this.getCollection();
+    const doc = await collection.findOne({ resumeId });
+    return doc ? toStudentProfile(doc) : null;
+  }
+
+  /**
+   * docs/screens.md §4.6 (feature 27d): mirrors a Resume publish/unpublish
+   * toggle onto its StudentProfile. Publishing deactivates every other
+   * profile for the student first — same single-active invariant `save`
+   * already enforces, kept until 27e's role-based routing allows more than
+   * one active profile per student at once.
+   */
+  async setActiveForResume(studentId: string, resumeId: string, isActive: boolean): Promise<void> {
+    const collection = await this.getCollection();
+    if (isActive) {
+      await collection.updateMany({ studentId, isActive: true }, { $set: { isActive: false } });
+    }
+    await collection.updateOne({ resumeId }, { $set: { isActive } });
+  }
+
   /** V1: full population, no candidate pre-filter (buildPlan.md §23). */
   async listAllActive(): Promise<StudentProfile[]> {
     const collection = await this.getCollection();

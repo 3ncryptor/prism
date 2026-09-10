@@ -40,19 +40,11 @@ export function StudentDashboard({ initialProfile, initialResume }: StudentDashb
     return () => clearInterval(intervalId);
   }, [resume]);
 
-  async function refreshProfile() {
-    const response = await fetch("/api/profile");
-    if (!response.ok) return;
-    const data: ProfileResponse = await response.json();
-    setProfile(data.profile);
-    setResume(data.resume);
-  }
-
   return (
     <div className="flex w-full flex-col gap-6">
       <PageHeader title="Dashboard" />
 
-      <ResumeStatusCard resume={resume} onUploaded={refreshProfile} />
+      <ResumeStatusCard resume={resume} />
 
       {profile ? (
         <ProfileSummary profile={profile} />

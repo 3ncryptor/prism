@@ -5,6 +5,7 @@ import type { SidebarNavItem } from "@/lib/layout/Sidebar";
 
 const STUDENT_NAV_ITEMS: SidebarNavItem[] = [
   { label: "Dashboard", href: "/student" },
+  { label: "Resumes", href: "/student/resumes" },
   { label: "Applications", href: "/student/applications" },
 ];
 

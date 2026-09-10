@@ -38,7 +38,7 @@ const RESUME_PROMPT_VERSION = "resume-extraction-v1";
 const JD_PROMPT_VERSION = "jd-extraction-v1";
 
 type ProcessResumeDeps = {
-  resumes: Pick<ResumeRepository, "get" | "updateStatus">;
+  resumes: Pick<ResumeRepository, "get" | "updateStatus" | "getActiveByStudent" | "setActive">;
   studentProfiles: Pick<StudentProfileRepository, "save">;
   skillTaxonomy: Pick<SkillTaxonomyRepository, "listActive">;
   downloadFile: typeof s3DownloadFile;
@@ -147,7 +147,16 @@ export async function processResumeJob(
       throw error;
     }
 
-    const savedProfile = await deps.studentProfiles.save(profile, { markActive: true });
+    // docs/screens.md §4.6 (feature 27d): a new resume no longer auto-
+    // publishes over whatever the student already published — except a
+    // student's very first resume, which must still "just work" without
+    // requiring an extra manual publish step.
+    const hasPublishedResume = Boolean(await deps.resumes.getActiveByStudent(resume.studentId));
+    const shouldAutoPublish = !hasPublishedResume;
+    const savedProfile = await deps.studentProfiles.save(profile, { markActive: shouldAutoPublish });
+    if (shouldAutoPublish) {
+      await deps.resumes.setActive(resumeId, resume.studentId);
+    }
 
     await deps.resumes.updateStatus(resumeId, "INDEXING");
     await deps.indexStudentProfile(savedProfile);

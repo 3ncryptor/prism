@@ -10,9 +10,10 @@ function makeResume(overrides: Partial<Resume> = {}): Resume {
   return {
     _id: "resume-1",
     studentId: "student-1",
+    label: "Software Dev Resume",
     fileKey: "",
     originalName: "resume.pdf",
-    isActive: true,
+    isActive: false,
     status: "UPLOADED",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -40,6 +41,7 @@ function makeDeps() {
 
 const VALID_FILE = {
   buffer: Buffer.from("%PDF-1.4 fake"),
+  label: "Software Dev Resume",
   originalName: "resume.pdf",
   mimeType: "application/pdf",
   size: 1024,
@@ -71,12 +73,15 @@ describe("uploadResume", () => {
     expect(deps.resumes.create).not.toHaveBeenCalled();
   });
 
-  it("deactivates prior resumes, uploads, sets the file key, and creates a processing job", async () => {
+  it("uploads without deactivating other resumes (multi-resume, feature 27d), sets the file key, and creates a processing job", async () => {
     const deps = makeDeps();
 
     const result = await uploadResume("student-1", VALID_FILE, deps);
 
-    expect(deps.resumes.deactivateAllForStudent).toHaveBeenCalledWith("student-1");
+    expect(deps.resumes.create).toHaveBeenCalledWith(
+      expect.objectContaining({ studentId: "student-1", label: "Software Dev Resume" }),
+    );
+    expect(deps.resumes.deactivateAllForStudent).not.toHaveBeenCalled();
     expect(deps.uploadFile).toHaveBeenCalledWith(
       "resumes/student-1/resume-1/original.pdf",
       VALID_FILE.buffer,

@@ -1,5 +1,9 @@
 import { resumeRepository, type ResumeRepository } from "@/lib/db/repositories/resumeRepository";
 import {
+  studentProfileRepository,
+  type StudentProfileRepository,
+} from "@/lib/db/repositories/studentProfileRepository";
+import {
   processingJobRepository,
   type ProcessingJobRepository,
 } from "@/lib/db/repositories/processingJobRepository";
@@ -29,8 +33,30 @@ export class FileTooLargeError extends Error {
   }
 }
 
+export class ResumeNotFoundError extends Error {
+  constructor() {
+    super("Resume not found");
+    this.name = "ResumeNotFoundError";
+  }
+}
+
+export class ResumeAccessDeniedError extends Error {
+  constructor() {
+    super("You don't have access to this resume");
+    this.name = "ResumeAccessDeniedError";
+  }
+}
+
+export class ResumeNotReadyError extends Error {
+  constructor() {
+    super("Only a fully-processed resume can be published");
+    this.name = "ResumeNotReadyError";
+  }
+}
+
 export interface UploadResumeInput {
   buffer: Buffer;
+  label: string;
   originalName: string;
   mimeType: string;
   size: number;
@@ -75,9 +101,9 @@ export async function uploadResume(
     throw new InvalidFileTypeError();
   }
 
-  await deps.resumes.deactivateAllForStudent(studentId);
   const resume = await deps.resumes.create({
     studentId,
+    label: file.label,
     fileKey: "", // finalized below, once the resumeId is known (§5.1 key convention)
     originalName: file.originalName,
   });
@@ -98,4 +124,43 @@ export async function getActiveResume(studentId: string): Promise<Resume | null>
 
 export async function listResumes(studentId: string): Promise<Resume[]> {
   return resumeRepository.listByStudent(studentId);
+}
+
+type PublishDeps = {
+  resumes: Pick<ResumeRepository, "get" | "setActive" | "setIsActive">;
+  studentProfiles: Pick<StudentProfileRepository, "setActiveForResume">;
+};
+
+const defaultPublishDeps: PublishDeps = {
+  resumes: resumeRepository,
+  studentProfiles: studentProfileRepository,
+};
+
+/**
+ * docs/screens.md §4.6 (feature 27d): the student-controlled "Publish for
+ * matching" toggle. Publishing un-publishes any other resume for the same
+ * student — see resumeRepository.setActive's docstring for why (the
+ * single-active invariant the matching engine still relies on until 27e).
+ */
+export async function setResumePublishStatus(
+  resumeId: string,
+  studentId: string,
+  isPublished: boolean,
+  deps: PublishDeps = defaultPublishDeps,
+): Promise<Resume> {
+  const resume = await deps.resumes.get(resumeId);
+  if (!resume) throw new ResumeNotFoundError();
+  if (resume.studentId !== studentId) throw new ResumeAccessDeniedError();
+  if (isPublished && resume.status !== "READY") throw new ResumeNotReadyError();
+
+  if (isPublished) {
+    await deps.resumes.setActive(resumeId, studentId);
+  } else {
+    await deps.resumes.setIsActive(resumeId, false);
+  }
+  await deps.studentProfiles.setActiveForResume(studentId, resumeId, isPublished);
+
+  const updated = await deps.resumes.get(resumeId);
+  if (!updated) throw new ResumeNotFoundError();
+  return updated;
 }

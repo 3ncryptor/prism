@@ -18,10 +18,15 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Missing file" }, { status: 400 });
     }
+    const label = formData.get("label");
+    if (typeof label !== "string" || label.trim().length === 0) {
+      return NextResponse.json({ error: "A label is required (e.g. \"Data Science Resume\")" }, { status: 400 });
+    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await uploadResume(session.user.id, {
       buffer,
+      label: label.trim(),
       originalName: file.name,
       mimeType: file.type,
       size: file.size,
