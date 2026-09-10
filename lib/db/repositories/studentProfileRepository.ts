@@ -48,17 +48,14 @@ export class StudentProfileRepository {
   }
 
   /**
-   * docs/screens.md §4.6 (feature 27d): mirrors a Resume publish/unpublish
-   * toggle onto its StudentProfile. Publishing deactivates every other
-   * profile for the student first — same single-active invariant `save`
-   * already enforces, kept until 27e's role-based routing allows more than
-   * one active profile per student at once.
+   * docs/screens.md §4.6 (feature 27d, revised 27e): mirrors a Resume
+   * publish/unpublish toggle onto its StudentProfile. No cross-student
+   * cascade here — resumeService.setResumePublishStatus already rejects a
+   * conflicting same-role publish via resumeRepository.hasActiveForRole
+   * before this is ever called, so this is just a plain field set.
    */
-  async setActiveForResume(studentId: string, resumeId: string, isActive: boolean): Promise<void> {
+  async setActiveForResume(resumeId: string, isActive: boolean): Promise<void> {
     const collection = await this.getCollection();
-    if (isActive) {
-      await collection.updateMany({ studentId, isActive: true }, { $set: { isActive: false } });
-    }
     await collection.updateOne({ resumeId }, { $set: { isActive } });
   }
 

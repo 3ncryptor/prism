@@ -10,6 +10,7 @@ import {
   type MatchResultRepository,
 } from "@/lib/db/repositories/matchResultRepository";
 import { jobRepository, type JobRepository } from "@/lib/db/repositories/jobRepository";
+import { resumeRepository, type ResumeRepository } from "@/lib/db/repositories/resumeRepository";
 import {
   jobProfileRepository,
   type JobProfileRepository,
@@ -25,6 +26,7 @@ import {
 import { embedJobRequirements as defaultEmbedJobRequirements } from "@/lib/services/embeddingService";
 import { retrieveEvidenceForStudent as defaultRetrieveEvidenceForStudent } from "@/lib/services/vectorStoreService";
 import { evaluateMatch as defaultEvaluateMatch } from "@/lib/matching/matchingEngine";
+import { selectResumeForJob } from "@/lib/matching/selectResumeForJob";
 import type { MatchingJobPayload } from "@/lib/queue/jobTypes";
 import { logger } from "@/lib/logger";
 import { withTiming } from "@/lib/observability/timing";
@@ -33,6 +35,7 @@ type ProcessMatchRunDeps = {
   matchRuns: Pick<MatchRunRepository, "get" | "updateStatus" | "setCandidateCount" | "incrementProcessed" | "complete">;
   matchResults: Pick<MatchResultRepository, "upsert">;
   jobs: Pick<JobRepository, "get">;
+  resumes: Pick<ResumeRepository, "get">;
   jobProfiles: Pick<JobProfileRepository, "getByJobId">;
   scoringConfigs: Pick<ScoringConfigRepository, "getByVersion">;
   studentProfiles: Pick<StudentProfileRepository, "listAllActive">;
@@ -45,6 +48,7 @@ const defaultDeps: ProcessMatchRunDeps = {
   matchRuns: matchRunRepository,
   matchResults: matchResultRepository,
   jobs: jobRepository,
+  resumes: resumeRepository,
   jobProfiles: jobProfileRepository,
   scoringConfigs: scoringConfigRepository,
   studentProfiles: studentProfileRepository,
@@ -81,13 +85,36 @@ export async function processMatchRun(
     const config = await deps.scoringConfigs.getByVersion(run.scoringConfigVersion);
     if (!config) throw new Error(`Scoring config not found: ${run.scoringConfigVersion}`);
 
-    const students = await deps.studentProfiles.listAllActive();
+    // docs/screens.md §3 decision #2 (feature 27e): a student can now have
+    // more than one published resume at once (one per role) — group by
+    // studentId and let selectResumeForJob pick exactly one per student,
+    // so nobody appears on a job's leaderboard more than once.
+    const activeProfiles = await deps.studentProfiles.listAllActive();
+    const profilesByStudent = new Map<string, typeof activeProfiles>();
+    for (const profile of activeProfiles) {
+      const group = profilesByStudent.get(profile.studentId) ?? [];
+      group.push(profile);
+      profilesByStudent.set(profile.studentId, group);
+    }
+
+    const students: { profile: (typeof activeProfiles)[number]; resumeId: string }[] = [];
+    for (const profiles of profilesByStudent.values()) {
+      const candidates = await Promise.all(
+        profiles.map(async (profile) => ({
+          profile,
+          jobRole: (await deps.resumes.get(profile.resumeId))?.jobRole ?? null,
+        })),
+      );
+      const selected = selectResumeForJob(job.jobRole, candidates);
+      if (selected) students.push({ profile: selected.profile, resumeId: selected.profile.resumeId });
+    }
+
     await deps.matchRuns.setCandidateCount(matchRunId, students.length);
     await deps.matchRuns.updateStatus(matchRunId, "RUNNING");
 
     const requirementVectors = await deps.embedJobRequirements(jobProfile);
 
-    for (const student of students) {
+    for (const { profile: student, resumeId } of students) {
       const retrieval = await deps.retrieveEvidenceForStudent(student.studentId, requirementVectors);
       const evaluation = deps.evaluateMatch(student, jobProfile, config, retrieval);
 
@@ -95,6 +122,7 @@ export async function processMatchRun(
         matchRunId,
         studentId: student.studentId,
         jobId: run.jobId,
+        resumeId,
         score: evaluation.score,
         bucket: evaluation.bucket,
         confidence: evaluation.confidence,

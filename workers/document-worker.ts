@@ -38,7 +38,7 @@ const RESUME_PROMPT_VERSION = "resume-extraction-v1";
 const JD_PROMPT_VERSION = "jd-extraction-v1";
 
 type ProcessResumeDeps = {
-  resumes: Pick<ResumeRepository, "get" | "updateStatus" | "getActiveByStudent" | "setActive">;
+  resumes: Pick<ResumeRepository, "get" | "updateStatus" | "hasActiveForRole" | "setIsActive">;
   studentProfiles: Pick<StudentProfileRepository, "save">;
   skillTaxonomy: Pick<SkillTaxonomyRepository, "listActive">;
   downloadFile: typeof s3DownloadFile;
@@ -147,15 +147,16 @@ export async function processResumeJob(
       throw error;
     }
 
-    // docs/screens.md §4.6 (feature 27d): a new resume no longer auto-
-    // publishes over whatever the student already published — except a
-    // student's very first resume, which must still "just work" without
+    // docs/screens.md §4.6/§3 decision #2 (features 27d/27e): a new resume
+    // no longer auto-publishes over a resume the student already published
+    // for the same role — except when there's no conflict (most commonly a
+    // student's very first resume), which must still "just work" without
     // requiring an extra manual publish step.
-    const hasPublishedResume = Boolean(await deps.resumes.getActiveByStudent(resume.studentId));
-    const shouldAutoPublish = !hasPublishedResume;
+    const hasConflict = await deps.resumes.hasActiveForRole(resume.studentId, resume.jobRole, resumeId);
+    const shouldAutoPublish = !hasConflict;
     const savedProfile = await deps.studentProfiles.save(profile, { markActive: shouldAutoPublish });
     if (shouldAutoPublish) {
-      await deps.resumes.setActive(resumeId, resume.studentId);
+      await deps.resumes.setIsActive(resumeId, true);
     }
 
     await deps.resumes.updateStatus(resumeId, "INDEXING");

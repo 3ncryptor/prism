@@ -7,6 +7,7 @@ import {
   FileTooLargeError,
 } from "@/lib/services/resumeService";
 import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
+import { jobRoleTaxonomyRepository } from "@/lib/db/repositories/jobRoleTaxonomyRepository";
 
 export async function POST(request: Request) {
   try {
@@ -23,10 +24,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A label is required (e.g. \"Data Science Resume\")" }, { status: 400 });
     }
 
+    // docs/screens.md §3 decision #1 (feature 27e): a select-only tag —
+    // empty/missing means the explicit "general resume" choice, but a
+    // non-empty value must be a real, currently-active canonical role.
+    const rawJobRole = formData.get("jobRole");
+    let jobRole: string | null = null;
+    if (typeof rawJobRole === "string" && rawJobRole.trim().length > 0) {
+      const activeRoles = await jobRoleTaxonomyRepository.listActive();
+      const match = activeRoles.find((role) => role.canonicalName === rawJobRole.trim());
+      if (!match) {
+        return NextResponse.json({ error: "jobRole must be an existing, active job role" }, { status: 400 });
+      }
+      jobRole = match.canonicalName;
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await uploadResume(session.user.id, {
       buffer,
       label: label.trim(),
+      jobRole,
       originalName: file.name,
       mimeType: file.type,
       size: file.size,

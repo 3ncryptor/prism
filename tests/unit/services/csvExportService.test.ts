@@ -7,6 +7,7 @@ function makeResult(overrides: Partial<ExportableMatchResult> = {}): ExportableM
     studentId: "student-1",
     studentName: "Jane Doe",
     jobId: "job-1",
+    resumeId: "resume-1",
     score: 85.5,
     bucket: "BEST_FIT",
     confidence: 80,

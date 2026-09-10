@@ -58,6 +58,7 @@ export interface UploadJobInput {
   size: number;
   title: string;
   company?: string;
+  jobRole: string;
 }
 
 type Deps = {
@@ -96,6 +97,7 @@ export async function uploadJob(
     company: file.company,
     fileKey: "", // finalized below, once the jobId is known
     createdBy,
+    jobRole: file.jobRole,
   });
 
   const fileKey = buildJobKey(job._id, extension);

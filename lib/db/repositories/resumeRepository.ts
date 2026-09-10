@@ -2,14 +2,16 @@ import { Collection, ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/client";
 import type { Resume, ResumeStatus } from "@/lib/schemas/resume";
 
-// `label` (feature 27d) is new and required — documents created before this
-// feature shipped won't have it in Mongo. Defaulted defensively on read
-// (same pattern as Job.listingStatus/leaderboardSize in jobRepository.ts)
-// rather than a migration script for a handful of dev-era docs.
+// `label` (27d) and `jobRole` (27e) are new — documents created before
+// these features shipped won't have them in Mongo. Defaulted defensively
+// on read (same pattern as Job.listingStatus/leaderboardSize in
+// jobRepository.ts) rather than a migration script for a handful of
+// dev-era docs.
 export interface ResumeDocument {
   _id: ObjectId;
   studentId: string;
   label?: string;
+  jobRole?: string | null;
   fileKey: string;
   originalName: string;
   isActive: boolean;
@@ -20,7 +22,7 @@ export interface ResumeDocument {
 }
 
 function toResume(doc: ResumeDocument): Resume {
-  return { ...doc, _id: doc._id.toString(), label: doc.label ?? "Resume" };
+  return { ...doc, _id: doc._id.toString(), label: doc.label ?? "Resume", jobRole: doc.jobRole ?? null };
 }
 
 export class ResumeRepository {
@@ -28,19 +30,11 @@ export class ResumeRepository {
     private readonly getCollection: () => Promise<Collection<ResumeDocument>>,
   ) {}
 
-  /** docs/screens.md §4.6 (feature 27d): enforces at most one published resume per student. */
-  async deactivateAllForStudent(studentId: string): Promise<void> {
-    const collection = await this.getCollection();
-    await collection.updateMany(
-      { studentId, isActive: true },
-      { $set: { isActive: false, updatedAt: new Date() } },
-    );
-  }
-
   /** docs/screens.md §4.6 (feature 27d): every upload adds a new resume — never replaces one, never auto-publishes. */
   async create(input: {
     studentId: string;
     label: string;
+    jobRole: string | null;
     fileKey: string;
     originalName: string;
   }): Promise<Resume> {
@@ -58,22 +52,30 @@ export class ResumeRepository {
     return toResume(doc);
   }
 
-  /** docs/screens.md §4.6 (feature 27d): publishing one resume un-publishes any other for the same student. */
-  async setActive(resumeId: string, studentId: string): Promise<void> {
-    await this.deactivateAllForStudent(studentId);
-    const collection = await this.getCollection();
-    await collection.updateOne(
-      { _id: new ObjectId(resumeId) },
-      { $set: { isActive: true, updatedAt: new Date() } },
-    );
-  }
-
   async setIsActive(resumeId: string, isActive: boolean): Promise<void> {
     const collection = await this.getCollection();
     await collection.updateOne(
       { _id: new ObjectId(resumeId) },
       { $set: { isActive, updatedAt: new Date() } },
     );
+  }
+
+  /**
+   * docs/screens.md §3 decision #2 (feature 27e): "Selection, not
+   * multiplication" — a student may have at most one *published* resume
+   * per role (including the null/global role) at a time. Used both to
+   * reject a conflicting manual publish and to decide whether a freshly
+   * processed resume can safely auto-publish.
+   */
+  async hasActiveForRole(studentId: string, jobRole: string | null, excludeResumeId?: string): Promise<boolean> {
+    const collection = await this.getCollection();
+    const count = await collection.countDocuments({
+      studentId,
+      jobRole,
+      isActive: true,
+      ...(excludeResumeId ? { _id: { $ne: new ObjectId(excludeResumeId) } } : {}),
+    });
+    return count > 0;
   }
 
   async setFileKey(resumeId: string, fileKey: string): Promise<void> {
@@ -102,6 +104,7 @@ export class ResumeRepository {
     return doc ? toResume(doc) : null;
   }
 
+  /** Display-only (e.g. the Dashboard summary card) — with multi-role publishing, a student can have more than one active resume; this returns just one of them. */
   async getActiveByStudent(studentId: string): Promise<Resume | null> {
     const collection = await this.getCollection();
     const doc = await collection.findOne({ studentId, isActive: true });
@@ -112,6 +115,12 @@ export class ResumeRepository {
     const collection = await this.getCollection();
     const docs = await collection.find({ studentId }).sort({ createdAt: -1 }).toArray();
     return docs.map(toResume);
+  }
+
+  /** docs/screens.md §4.11 (feature 27e): usage count for the job role taxonomy admin table. */
+  async countReferencingRole(canonicalName: string): Promise<number> {
+    const collection = await this.getCollection();
+    return collection.countDocuments({ jobRole: canonicalName });
   }
 }
 

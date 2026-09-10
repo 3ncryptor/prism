@@ -57,16 +57,14 @@ export class ResumeNotReadyError extends Error {
 export interface UploadResumeInput {
   buffer: Buffer;
   label: string;
+  jobRole: string | null;
   originalName: string;
   mimeType: string;
   size: number;
 }
 
 type Deps = {
-  resumes: Pick<
-    ResumeRepository,
-    "create" | "deactivateAllForStudent" | "setFileKey" | "getActiveByStudent" | "listByStudent"
-  >;
+  resumes: Pick<ResumeRepository, "create" | "setFileKey" | "getActiveByStudent" | "listByStudent">;
   processingJobs: Pick<ProcessingJobRepository, "create">;
   uploadFile: typeof s3UploadFile;
   enqueueDocumentProcessing: typeof defaultEnqueueDocumentProcessing;
@@ -104,6 +102,7 @@ export async function uploadResume(
   const resume = await deps.resumes.create({
     studentId,
     label: file.label,
+    jobRole: file.jobRole,
     fileKey: "", // finalized below, once the resumeId is known (§5.1 key convention)
     originalName: file.originalName,
   });
@@ -126,8 +125,16 @@ export async function listResumes(studentId: string): Promise<Resume[]> {
   return resumeRepository.listByStudent(studentId);
 }
 
+export class ConflictingRolePublishedError extends Error {
+  constructor(jobRole: string | null) {
+    const roleLabel = jobRole ?? "a general/global resume";
+    super(`You already have a published resume for ${roleLabel}. Unpublish it first.`);
+    this.name = "ConflictingRolePublishedError";
+  }
+}
+
 type PublishDeps = {
-  resumes: Pick<ResumeRepository, "get" | "setActive" | "setIsActive">;
+  resumes: Pick<ResumeRepository, "get" | "setIsActive" | "hasActiveForRole">;
   studentProfiles: Pick<StudentProfileRepository, "setActiveForResume">;
 };
 
@@ -137,10 +144,10 @@ const defaultPublishDeps: PublishDeps = {
 };
 
 /**
- * docs/screens.md §4.6 (feature 27d): the student-controlled "Publish for
- * matching" toggle. Publishing un-publishes any other resume for the same
- * student — see resumeRepository.setActive's docstring for why (the
- * single-active invariant the matching engine still relies on until 27e).
+ * docs/screens.md §3 decision #2 (feature 27e): "Selection, not
+ * multiplication" — publishing is rejected (not silently overwritten) if
+ * the student already has another published resume for the same role
+ * (including the null/global role).
  */
 export async function setResumePublishStatus(
   resumeId: string,
@@ -154,11 +161,12 @@ export async function setResumePublishStatus(
   if (isPublished && resume.status !== "READY") throw new ResumeNotReadyError();
 
   if (isPublished) {
-    await deps.resumes.setActive(resumeId, studentId);
-  } else {
-    await deps.resumes.setIsActive(resumeId, false);
+    const hasConflict = await deps.resumes.hasActiveForRole(studentId, resume.jobRole, resumeId);
+    if (hasConflict) throw new ConflictingRolePublishedError(resume.jobRole);
   }
-  await deps.studentProfiles.setActiveForResume(studentId, resumeId, isPublished);
+
+  await deps.resumes.setIsActive(resumeId, isPublished);
+  await deps.studentProfiles.setActiveForResume(resumeId, isPublished);
 
   const updated = await deps.resumes.get(resumeId);
   if (!updated) throw new ResumeNotFoundError();

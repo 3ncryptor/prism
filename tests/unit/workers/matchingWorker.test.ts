@@ -4,6 +4,7 @@ import type { Job } from "@/lib/schemas/job";
 import type { JobProfile } from "@/lib/schemas/jobProfile";
 import type { ScoringConfig } from "@/lib/schemas/scoringConfig";
 import type { StudentProfile } from "@/lib/schemas/studentProfile";
+import type { Resume } from "@/lib/schemas/resume";
 
 function makeRun(overrides: Partial<MatchRun> = {}): MatchRun {
   return {
@@ -32,8 +33,28 @@ function makeJob(): Job {
     publishedAt: null,
     listingStatus: "LIVE",
     leaderboardSize: 10,
+    // Role-less job: with no role-specific candidates in these fixtures,
+    // this keeps selectResumeForJob's fallback-to-global path selecting
+    // every synthetic student below, unchanged from pre-27e behavior.
+    jobRole: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+  };
+}
+
+function makeResume(resumeId: string, overrides: Partial<Resume> = {}): Resume {
+  return {
+    _id: resumeId,
+    studentId: "student-1",
+    label: "Resume",
+    jobRole: null,
+    fileKey: `resumes/${resumeId}/original.pdf`,
+    originalName: "resume.pdf",
+    isActive: true,
+    status: "READY",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
   };
 }
 
@@ -103,6 +124,9 @@ function baseDeps() {
     },
     jobs: {
       get: jest.fn().mockResolvedValue(makeJob()),
+    },
+    resumes: {
+      get: jest.fn().mockImplementation((resumeId: string) => Promise.resolve(makeResume(resumeId))),
     },
     jobProfiles: {
       getByJobId: jest.fn().mockResolvedValue(makeJobProfile()),

@@ -17,6 +17,10 @@ export const matchResultSchema = z.object({
   matchRunId: z.string(),
   studentId: z.string(),
   jobId: z.string(),
+  // docs/screens.md §4.10 (feature 27e): "Resume used" — which of the
+  // student's (potentially several, role-tagged) resumes selectResumeForJob
+  // picked for this specific job, so admin CV review opens the right file.
+  resumeId: z.string(),
   score: z.number(),
   bucket: z.enum(["BEST_FIT", "MODERATE_FIT", "LOW_FIT"]),
   confidence: z.number(),

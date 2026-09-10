@@ -23,10 +23,10 @@ export function ResultTable({ results }: ResultTableProps) {
     return <EmptyState message="No results yet. Run matching to evaluate candidates." />;
   }
 
-  async function handleViewResume(studentId: string) {
+  async function handleViewResume(resumeId: string) {
     setResumeError(null);
     try {
-      const response = await fetch(`/api/admin/students/${studentId}/resume-url`);
+      const response = await fetch(`/api/admin/resumes/${resumeId}/file-url`);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Failed to open resume.");
       window.open(body.url, "_blank", "noopener,noreferrer");
@@ -92,7 +92,7 @@ export function ResultTable({ results }: ResultTableProps) {
                       <NSButton
                         variant="tertiary"
                         size="small"
-                        onClick={() => handleViewResume(result.studentId)}
+                        onClick={() => handleViewResume(result.resumeId)}
                       >
                         View resume file
                       </NSButton>

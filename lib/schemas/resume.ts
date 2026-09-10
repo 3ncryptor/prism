@@ -23,6 +23,10 @@ export const resumeSchema = z.object({
   _id: z.string(),
   studentId: z.string(),
   label: z.string().min(1),
+  // docs/screens.md §4.6/§4.11 (feature 27e): null = global/generic resume,
+  // used for any job with no role-specific published resume. A select-only
+  // tag from the admin-managed job role taxonomy — never free text.
+  jobRole: z.string().nullable(),
   fileKey: z.string(),
   originalName: z.string(),
   isActive: z.boolean(),

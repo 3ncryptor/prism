@@ -8,6 +8,7 @@ import {
 } from "@/lib/services/jobService";
 import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
 import { recordAuditLog } from "@/lib/services/auditLogService";
+import { jobRoleTaxonomyRepository } from "@/lib/db/repositories/jobRoleTaxonomyRepository";
 
 export async function POST(request: Request) {
   try {
@@ -18,8 +19,18 @@ export async function POST(request: Request) {
     const file = formData.get("file");
     const title = formData.get("title");
     const company = formData.get("company");
+    const jobRole = formData.get("jobRole");
     if (!(file instanceof File) || typeof title !== "string" || !title.trim()) {
       return NextResponse.json({ error: "Missing file or title" }, { status: 400 });
+    }
+    if (typeof jobRole !== "string" || jobRole.trim().length === 0) {
+      return NextResponse.json({ error: "A job role is required" }, { status: 400 });
+    }
+    // docs/screens.md §3 decision #1 (feature 27e): select-only — never a free-text-creatable tag.
+    const activeRoles = await jobRoleTaxonomyRepository.listActive();
+    const matchedRole = activeRoles.find((role) => role.canonicalName === jobRole.trim());
+    if (!matchedRole) {
+      return NextResponse.json({ error: "jobRole must be an existing, active job role" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -30,6 +41,7 @@ export async function POST(request: Request) {
       size: file.size,
       title,
       company: typeof company === "string" && company.trim() ? company : undefined,
+      jobRole: matchedRole.canonicalName,
     });
 
     await recordAuditLog({

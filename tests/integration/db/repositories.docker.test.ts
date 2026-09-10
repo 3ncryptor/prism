@@ -42,7 +42,7 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
     expect(userIndexes.some((i) => i.key.email === 1 && i.unique)).toBe(true);
   });
 
-  it("ResumeRepository: create, get, getActiveByStudent, listByStudent, updateStatus, setActive", async () => {
+  it("ResumeRepository: create, get, getActiveByStudent, listByStudent, updateStatus, setIsActive", async () => {
     const repo = new ResumeRepository(async () =>
       db.collection<ResumeDocument>("resumes"),
     );
@@ -50,6 +50,7 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
     const resume = await repo.create({
       studentId: "student-1",
       label: "Software Dev Resume",
+      jobRole: null,
       fileKey: "resumes/student-1/r1.pdf",
       originalName: "resume.pdf",
     });
@@ -61,7 +62,7 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
     expect((await repo.get(resume._id))?.status).toBe("READY");
 
     expect(await repo.getActiveByStudent("student-1")).toBeNull();
-    await repo.setActive(resume._id, "student-1");
+    await repo.setIsActive(resume._id, true);
     expect((await repo.getActiveByStudent("student-1"))?._id).toBe(resume._id);
     expect(await repo.listByStudent("student-1")).toHaveLength(1);
 
@@ -71,30 +72,49 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
     );
   });
 
-  it("ResumeRepository: setActive enforces at most one published resume per student (feature 27d)", async () => {
+  it("ResumeRepository: hasActiveForRole scopes conflicts to a single role, letting different roles stay published at once (feature 27e)", async () => {
     const repo = new ResumeRepository(async () =>
       db.collection<ResumeDocument>("resumes"),
     );
 
-    const first = await repo.create({
-      studentId: "student-versioning",
-      label: "V1",
+    const dsResume = await repo.create({
+      studentId: "student-multi-role",
+      label: "Data Science Resume",
+      jobRole: "data science",
       fileKey: "k1",
-      originalName: "v1.pdf",
+      originalName: "ds.pdf",
     });
-    await repo.setActive(first._id, "student-versioning");
-    const second = await repo.create({
-      studentId: "student-versioning",
-      label: "V2",
+    const swResume = await repo.create({
+      studentId: "student-multi-role",
+      label: "Software Dev Resume",
+      jobRole: "software development",
       fileKey: "k2",
-      originalName: "v2.pdf",
+      originalName: "sw.pdf",
     });
-    await repo.setActive(second._id, "student-versioning");
 
-    expect((await repo.get(first._id))?.isActive).toBe(false);
-    expect((await repo.get(second._id))?.isActive).toBe(true);
-    expect(await repo.listByStudent("student-versioning")).toHaveLength(2);
-    expect((await repo.getActiveByStudent("student-versioning"))?._id).toBe(second._id);
+    await repo.setIsActive(dsResume._id, true);
+    expect(await repo.hasActiveForRole("student-multi-role", "data science")).toBe(true);
+    expect(await repo.hasActiveForRole("student-multi-role", "software development")).toBe(false);
+
+    await repo.setIsActive(swResume._id, true);
+    expect(await repo.hasActiveForRole("student-multi-role", "software development")).toBe(true);
+
+    // Both stay active simultaneously — different roles, no cascading deactivation.
+    expect((await repo.get(dsResume._id))?.isActive).toBe(true);
+    expect((await repo.get(swResume._id))?.isActive).toBe(true);
+    expect(await repo.listByStudent("student-multi-role")).toHaveLength(2);
+
+    // A second resume for the SAME already-published role is a detectable
+    // conflict (resumeService rejects publishing it, rather than this
+    // low-level method silently overwriting).
+    const dsResume2 = await repo.create({
+      studentId: "student-multi-role",
+      label: "Data Science Resume 2",
+      jobRole: "data science",
+      fileKey: "k3",
+      originalName: "ds2.pdf",
+    });
+    expect(await repo.hasActiveForRole("student-multi-role", "data science", dsResume2._id)).toBe(true);
   });
 
   it("StudentProfileRepository: save deactivates the prior active profile", async () => {
@@ -138,6 +158,7 @@ describe("Feature #3 repositories (real MongoDB via Docker)", () => {
       title: "Software Engineer Intern",
       fileKey: "jds/jd1.pdf",
       createdBy: "admin-1",
+      jobRole: "software development",
     });
     expect(job.publishedMatchRunId).toBeNull();
 

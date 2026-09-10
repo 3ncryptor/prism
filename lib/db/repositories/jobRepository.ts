@@ -4,14 +4,16 @@ import type { Job, JobListingStatus, JobStatus } from "@/lib/schemas/job";
 
 const DEFAULT_LEADERBOARD_SIZE = 10;
 
-// listingStatus/leaderboardSize (feature 27c) are new, required fields —
-// documents created before this feature shipped won't have them in Mongo.
-// Rather than a one-off migration script for a handful of dev-era docs,
-// default them defensively on read; new docs get them set at create time.
-export type JobDocument = Omit<Job, "_id" | "listingStatus" | "leaderboardSize"> & {
+// listingStatus/leaderboardSize (27c) and jobRole (27e) are new fields —
+// documents created before these features shipped won't have them in
+// Mongo. Rather than a one-off migration script for a handful of dev-era
+// docs, default them defensively on read; new docs get them set at create
+// time.
+export type JobDocument = Omit<Job, "_id" | "listingStatus" | "leaderboardSize" | "jobRole"> & {
   _id: ObjectId;
   listingStatus?: JobListingStatus;
   leaderboardSize?: number;
+  jobRole?: string | null;
 };
 
 function toJob(doc: JobDocument): Job {
@@ -20,6 +22,7 @@ function toJob(doc: JobDocument): Job {
     _id: doc._id.toString(),
     listingStatus: doc.listingStatus ?? "DRAFT",
     leaderboardSize: doc.leaderboardSize ?? DEFAULT_LEADERBOARD_SIZE,
+    jobRole: doc.jobRole ?? null,
   };
 }
 
@@ -33,6 +36,7 @@ export class JobRepository {
     company?: string;
     fileKey: string;
     createdBy: string;
+    jobRole: string | null;
   }): Promise<Job> {
     const collection = await this.getCollection();
     const now = new Date();
@@ -125,6 +129,12 @@ export class JobRepository {
       { _id: new ObjectId(jobId) },
       { $set: { leaderboardSize, updatedAt: new Date() } },
     );
+  }
+
+  /** docs/screens.md §4.11 (feature 27e): usage count for the job role taxonomy admin table. */
+  async countReferencingRole(canonicalName: string): Promise<number> {
+    const collection = await this.getCollection();
+    return collection.countDocuments({ jobRole: canonicalName });
   }
 }
 

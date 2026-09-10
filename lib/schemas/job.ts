@@ -35,6 +35,12 @@ export const jobSchema = z.object({
   publishedAt: z.date().nullable(),
   listingStatus: jobListingStatusSchema,
   leaderboardSize: z.number().int().positive(),
+  // docs/screens.md §4.9/§4.11 (feature 27e): the canonical role this JD is
+  // for — nullable rather than a sensible default, since there is no
+  // sensible default role; every *new* upload requires picking a real one
+  // from the taxonomy (enforced at the upload route, not here), but jobs
+  // that existed before this feature shipped read back as null.
+  jobRole: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

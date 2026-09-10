@@ -20,6 +20,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     publishedAt: null,
     listingStatus: "LIVE",
     leaderboardSize: 10,
+    jobRole: "data science",
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

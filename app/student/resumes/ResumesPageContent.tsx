@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { Resume } from "@/lib/schemas/resume";
 import type { StudentProfile } from "@/lib/schemas/studentProfile";
+import type { JobRoleTaxonomyEntry } from "@/lib/schemas/jobRoleTaxonomy";
 import { resumeStatusColor, resumeStatusLabel } from "@/app/student/resumeStatusDisplay";
 import { MUTED_TEXT_COLOR } from "@/app/student/theme";
 import { PageHeader } from "@/lib/layout/PageHeader";
@@ -25,6 +26,8 @@ export function ResumesPageContent() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [label, setLabel] = useState("");
+  const [jobRole, setJobRole] = useState("");
+  const [roles, setRoles] = useState<JobRoleTaxonomyEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -57,6 +60,18 @@ export function ResumesPageContent() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    fetch("/api/job-roles")
+      .then((res) => (res.ok ? res.json() : { roles: [] }))
+      .then((data: { roles: JobRoleTaxonomyEntry[] }) => {
+        if (!cancelled) setRoles(data.roles);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const hasProcessing = resumes.some((r) => r.status !== "READY" && r.status !== "FAILED");
     if (!hasProcessing) return;
     const intervalId = setInterval(refreshResumes, POLL_INTERVAL_MS);
@@ -80,10 +95,12 @@ export function ResumesPageContent() {
       const formData = new FormData();
       formData.set("file", file);
       formData.set("label", label.trim());
+      if (jobRole) formData.set("jobRole", jobRole);
       const response = await fetch("/api/resumes", { method: "POST", body: formData });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Upload failed. Please try again.");
       setLabel("");
+      setJobRole("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       await refreshResumes();
     } catch (err) {
@@ -157,6 +174,21 @@ export function ResumesPageContent() {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
           />
+          <label className="flex flex-col gap-1 text-sm text-gray-700">
+            Job role
+            <select
+              className="rounded border border-gray-300 px-3 py-2"
+              value={jobRole}
+              onChange={(e) => setJobRole(e.target.value)}
+            >
+              <option value="">No specific role — general resume</option>
+              {roles.map((role) => (
+                <option key={role._id} value={role.canonicalName}>
+                  {role.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
           <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS} className="text-sm" />
           <NSButton type="submit" variant="primary" loading={isUploading}>
             Upload resume
@@ -186,7 +218,10 @@ export function ResumesPageContent() {
                 </NSPill>
               </div>
               <NSTypography variant="paragraph-md-p3" color={MUTED_TEXT_COLOR}>
-                {resume.originalName}
+                {resume.originalName} · Role:{" "}
+                {resume.jobRole
+                  ? (roles.find((r) => r.canonicalName === resume.jobRole)?.displayName ?? resume.jobRole)
+                  : "General resume"}
               </NSTypography>
 
               {isFailed && (

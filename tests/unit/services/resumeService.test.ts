@@ -11,6 +11,7 @@ function makeResume(overrides: Partial<Resume> = {}): Resume {
     _id: "resume-1",
     studentId: "student-1",
     label: "Software Dev Resume",
+    jobRole: null,
     fileKey: "",
     originalName: "resume.pdf",
     isActive: false,
@@ -25,7 +26,6 @@ function makeDeps() {
   const created = makeResume();
   return {
     resumes: {
-      deactivateAllForStudent: jest.fn().mockResolvedValue(undefined),
       create: jest.fn().mockResolvedValue(created),
       setFileKey: jest.fn().mockResolvedValue(undefined),
       getActiveByStudent: jest.fn(),
@@ -42,6 +42,7 @@ function makeDeps() {
 const VALID_FILE = {
   buffer: Buffer.from("%PDF-1.4 fake"),
   label: "Software Dev Resume",
+  jobRole: null,
   originalName: "resume.pdf",
   mimeType: "application/pdf",
   size: 1024,
@@ -79,9 +80,8 @@ describe("uploadResume", () => {
     const result = await uploadResume("student-1", VALID_FILE, deps);
 
     expect(deps.resumes.create).toHaveBeenCalledWith(
-      expect.objectContaining({ studentId: "student-1", label: "Software Dev Resume" }),
+      expect.objectContaining({ studentId: "student-1", label: "Software Dev Resume", jobRole: null }),
     );
-    expect(deps.resumes.deactivateAllForStudent).not.toHaveBeenCalled();
     expect(deps.uploadFile).toHaveBeenCalledWith(
       "resumes/student-1/resume-1/original.pdf",
       VALID_FILE.buffer,

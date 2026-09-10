@@ -12,6 +12,7 @@ function makeResume(overrides: Partial<Resume> = {}): Resume {
     _id: "resume-1",
     studentId: "student-1",
     label: "Software Dev Resume",
+    jobRole: null,
     fileKey: "resumes/student-1/resume-1/original.pdf",
     originalName: "resume.pdf",
     isActive: true,
@@ -48,8 +49,8 @@ function baseDeps() {
     resumes: {
       get: jest.fn().mockResolvedValue(makeResume()),
       updateStatus: jest.fn().mockResolvedValue(undefined),
-      getActiveByStudent: jest.fn().mockResolvedValue(null),
-      setActive: jest.fn().mockResolvedValue(undefined),
+      hasActiveForRole: jest.fn().mockResolvedValue(false),
+      setIsActive: jest.fn().mockResolvedValue(undefined),
     },
     studentProfiles: {
       save: jest.fn().mockResolvedValue({ ...makeProfile(), _id: "profile-1" }),
@@ -81,8 +82,8 @@ describe("processResumeJob", () => {
       resumes: {
         get: jest.fn().mockResolvedValue(null),
         updateStatus: jest.fn(),
-        getActiveByStudent: jest.fn(),
-        setActive: jest.fn(),
+        hasActiveForRole: jest.fn(),
+        setIsActive: jest.fn(),
       },
     });
 
@@ -103,27 +104,28 @@ describe("processResumeJob", () => {
     expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(4, "resume-1", "VALIDATING");
     expect(deps.normalizeProfile).toHaveBeenCalled();
     expect(deps.studentProfiles.save).toHaveBeenCalledWith(profile, { markActive: true });
+    expect(deps.resumes.setIsActive).toHaveBeenCalledWith("resume-1", true);
     expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(5, "resume-1", "INDEXING");
     expect(deps.indexStudentProfile).toHaveBeenCalled();
     expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(6, "resume-1", "READY");
   });
 
-  it("does not auto-publish a newly processed resume when the student already has a published one", async () => {
+  it("does not auto-publish a newly processed resume when the student already has a published resume for the same role", async () => {
     const profile = makeProfile();
     const deps = makeDeps({
       normalizeProfile: jest.fn().mockReturnValue(profile),
       resumes: {
         get: jest.fn().mockResolvedValue(makeResume()),
         updateStatus: jest.fn().mockResolvedValue(undefined),
-        getActiveByStudent: jest.fn().mockResolvedValue(makeResume({ _id: "resume-0" })),
-        setActive: jest.fn().mockResolvedValue(undefined),
+        hasActiveForRole: jest.fn().mockResolvedValue(true),
+        setIsActive: jest.fn().mockResolvedValue(undefined),
       },
     });
 
     await processResumeJob("resume-1", deps);
 
     expect(deps.studentProfiles.save).toHaveBeenCalledWith(profile, { markActive: false });
-    expect(deps.resumes.setActive).not.toHaveBeenCalled();
+    expect(deps.resumes.setIsActive).not.toHaveBeenCalled();
   });
 
   it("uses the DOCX extractor for a .docx key", async () => {
@@ -133,8 +135,8 @@ describe("processResumeJob", () => {
           makeResume({ fileKey: "resumes/student-1/resume-1/original.docx" }),
         ),
         updateStatus: jest.fn().mockResolvedValue(undefined),
-        getActiveByStudent: jest.fn().mockResolvedValue(null),
-        setActive: jest.fn().mockResolvedValue(undefined),
+        hasActiveForRole: jest.fn().mockResolvedValue(false),
+        setIsActive: jest.fn().mockResolvedValue(undefined),
       },
     });
 
@@ -217,6 +219,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     publishedAt: null,
     listingStatus: "LIVE",
     leaderboardSize: 10,
+    jobRole: "software development",
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

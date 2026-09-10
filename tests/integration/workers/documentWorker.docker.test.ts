@@ -88,6 +88,7 @@ describe("document-worker (real Mongo + S3 + Redis end-to-end)", () => {
     const resume = await resumeRepo.create({
       studentId: "student-e2e",
       label: "E2E Resume",
+      jobRole: null,
       fileKey,
       originalName: "resume.docx",
     });

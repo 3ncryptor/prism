@@ -5,6 +5,7 @@ import {
   ResumeNotFoundError,
   ResumeAccessDeniedError,
   ResumeNotReadyError,
+  ConflictingRolePublishedError,
 } from "@/lib/services/resumeService";
 
 /** docs/screens.md §4.6 (feature 27d): the student-controlled "Publish for matching" toggle. */
@@ -30,7 +31,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/resumes/[id
     if (error instanceof ResumeNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
-    if (error instanceof ResumeNotReadyError) {
+    if (error instanceof ResumeNotReadyError || error instanceof ConflictingRolePublishedError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     throw error;
