@@ -25,3 +25,22 @@ const shutdown = async () => {
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+
+/**
+ * This is a long-running process, not a request-scoped Next.js handler —
+ * an error here has no framework-level catch to fall back on. Without
+ * these, a bug that escapes a job handler's own try/catch (e.g. in
+ * document-worker.ts/matching-worker.ts) would either crash the process
+ * with no log of why, or — for an unhandled rejection specifically —
+ * leave Node running in a possibly-corrupted state indefinitely. Logging
+ * and exiting lets whatever process manager/orchestrator restarts this
+ * container do so cleanly, rather than silently degrading in place.
+ */
+process.on("uncaughtException", (error) => {
+  logger.error({ err: error }, "Uncaught exception in worker process — exiting");
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  logger.error({ err: reason }, "Unhandled promise rejection in worker process — exiting");
+  process.exit(1);
+});
