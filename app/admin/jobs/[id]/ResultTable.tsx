@@ -8,6 +8,7 @@ import { BucketPill } from "@/lib/layout/BucketPill";
 import { EmptyState } from "@/lib/layout/EmptyState";
 import { Typography } from "@/lib/ui/Typography";
 import { Button } from "@/lib/ui/Button";
+import { Badge } from "@/lib/ui/Badge";
 import { useStagger } from "@/lib/motion/useStagger";
 
 export type EnrichedMatchResult = MatchResult & { studentName: string; studentEmail: string };
@@ -20,7 +21,11 @@ interface ResultTableProps {
  * buildPlan.md §85: Rank/Student/Score/Confidence/Bucket/Missing
  * requirements. Visual pass in docs/screens.md §8.8 (feature 27o):
  * migrated off Grauity, rows get a hover state + useStagger on first
- * render.
+ * render. Renders every evaluated candidate, including ineligible ones
+ * (BACKEND_ARCHITECTURE.md §0.3: excluded from the student-facing
+ * leaderboard, never silently dropped from what the admin sees) — an
+ * "Eligibility" column shows the disqualifying reason instead of hiding
+ * the row outright.
  */
 export function ResultTable({ results }: ResultTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -54,7 +59,7 @@ export function ResultTable({ results }: ResultTableProps) {
       <table className="w-full min-w-[720px] border-collapse text-left">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
-            {["Rank", "Student", "Score", "Confidence", "Bucket", "Missing requirements", ""].map((heading) => (
+            {["Rank", "Student", "Score", "Confidence", "Bucket", "Eligibility", "Missing requirements", ""].map((heading) => (
               <th key={heading} className="px-4 py-3">
                 <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                   {heading}
@@ -68,7 +73,11 @@ export function ResultTable({ results }: ResultTableProps) {
             const isExpanded = expandedId === result._id;
             return (
               <Fragment key={result._id}>
-                <tr className="border-b border-gray-100 transition-colors duration-150 ease-out last:border-0 hover:bg-gray-50">
+                <tr
+                  className={`border-b border-gray-100 transition-colors duration-150 ease-out last:border-0 hover:bg-gray-50 ${
+                    result.eligible ? "" : "bg-gray-50/60"
+                  }`}
+                >
                   <td className="px-4 py-3">
                     <Typography variant="body">{index + 1}</Typography>
                   </td>
@@ -88,6 +97,18 @@ export function ResultTable({ results }: ResultTableProps) {
                     <BucketPill bucket={result.bucket} />
                   </td>
                   <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1">
+                      <Badge tone={result.eligible ? "success" : "error"}>
+                        {result.eligible ? "Eligible" : "Ineligible"}
+                      </Badge>
+                      {!result.eligible && result.ineligibilityReasons.length > 0 && (
+                        <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
+                          {result.ineligibilityReasons.join("; ")}
+                        </Typography>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
                     <Typography variant="caption">
                       {result.missingRequirements.length > 0 ? result.missingRequirements.join(", ") : "—"}
                     </Typography>
@@ -105,7 +126,7 @@ export function ResultTable({ results }: ResultTableProps) {
                 </tr>
                 {isExpanded && (
                   <tr className="border-b border-gray-100 bg-gray-50 last:border-0">
-                    <td colSpan={7} className="px-4 py-3">
+                    <td colSpan={8} className="px-4 py-3">
                       <EvidenceList evidence={result.evidence} />
                     </td>
                   </tr>

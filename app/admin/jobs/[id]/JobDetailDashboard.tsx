@@ -136,7 +136,15 @@ export function JobDetailDashboard({
     for (const result of data.results) counts[result.bucket] += 1;
     setBucketCounts(counts);
 
-    setResults(data.results.filter((r) => r.eligible));
+    // Previously filtered to eligible-only here, which silently dropped
+    // ineligible candidates from the table while the stat tiles above
+    // still counted them — an admin would see "Low Fit: 2" with zero
+    // matching rows and no indication why. Ineligible candidates are
+    // shown in the table now (ResultTable renders their disqualifying
+    // reason), matching BACKEND_ARCHITECTURE.md §0.3: excluded from the
+    // *student-facing* leaderboard, never silently dropped from what the
+    // admin sees.
+    setResults(data.results);
   }
 
   useEffect(() => {
