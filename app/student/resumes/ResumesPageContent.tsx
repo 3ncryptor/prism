@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { NSAlert, NSButton, NSPill, NSTextField, NSTypography } from "@newtonschool/grauity";
 import type { Resume } from "@/lib/schemas/resume";
 import type { StudentProfile } from "@/lib/schemas/studentProfile";
@@ -23,10 +24,13 @@ const POLL_INTERVAL_MS = 4000;
  * lib/services/resumeService.ts's setResumePublishStatus).
  */
 export function ResumesPageContent() {
+  const searchParams = useSearchParams();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [label, setLabel] = useState("");
-  const [jobRole, setJobRole] = useState("");
+  // Pre-selects the upload form's role when arriving from a dashboard
+  // "coverage gap" badge deep link (docs/screens.md §8.5, feature 27l).
+  const [jobRole, setJobRole] = useState(() => searchParams.get("role") ?? "");
   const [roles, setRoles] = useState<JobRoleTaxonomyEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);

@@ -1,59 +1,144 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { NSTypography } from "@newtonschool/grauity";
-import type { Resume } from "@/lib/schemas/resume";
-import type { StudentProfile } from "@/lib/schemas/studentProfile";
-import { ResumeStatusCard } from "@/app/student/ResumeStatusCard";
-import { ProfileSummary } from "@/app/student/ProfileSummary";
-import { isTerminalStatus } from "@/app/student/resumeStatusDisplay";
-import { MUTED_TEXT_COLOR } from "@/app/student/theme";
+import Link from "next/link";
 import { PageHeader } from "@/lib/layout/PageHeader";
+import { Card } from "@/lib/layout/Card";
+import { StatCard } from "@/lib/layout/StatCard";
+import { Badge } from "@/lib/ui/Badge";
+import { Typography } from "@/lib/ui/Typography";
+import { BRAND_COLOR, MUTED_TEXT_COLOR, getRoleColor } from "@/lib/designTokens";
+import type { StudentDashboardData } from "@/lib/services/studentDashboardService";
 
-const POLL_INTERVAL_MS = 4000;
-
-interface ProfileResponse {
-  profile: StudentProfile | null;
-  resume: Resume | null;
-}
+const BUCKET_LABELS = { BEST_FIT: "Best Fit", MODERATE_FIT: "Moderate Fit", LOW_FIT: "Low Fit" } as const;
+const BUCKET_COLORS = { BEST_FIT: "#16a34a", MODERATE_FIT: "#d97706", LOW_FIT: "#dc2626" } as const;
 
 interface StudentDashboardProps {
-  initialProfile: StudentProfile | null;
-  initialResume: Resume | null;
+  data: StudentDashboardData;
 }
 
-export function StudentDashboard({ initialProfile, initialResume }: StudentDashboardProps) {
-  const [profile, setProfile] = useState(initialProfile);
-  const [resume, setResume] = useState(initialResume);
-
-  useEffect(() => {
-    if (!resume || isTerminalStatus(resume.status)) return;
-
-    const intervalId = setInterval(async () => {
-      const response = await fetch("/api/profile");
-      if (!response.ok) return;
-      const data: ProfileResponse = await response.json();
-      setProfile(data.profile);
-      setResume(data.resume);
-    }, POLL_INTERVAL_MS);
-
-    return () => clearInterval(intervalId);
-  }, [resume]);
-
+/**
+ * docs/screens.md §8.5 (feature 27l). Replaces the old single-arbitrary-
+ * resume card with real aggregations from getStudentDashboardData — no
+ * Grauity, no client-only ssr:false wrapper needed (see app/student/page.tsx).
+ */
+export function StudentDashboard({ data }: StudentDashboardProps) {
   return (
     <div className="flex w-full flex-col gap-6">
       <PageHeader title="Dashboard" />
 
-      <ResumeStatusCard resume={resume} />
+      <Card className="flex flex-col gap-3">
+        <Typography variant="h2">
+          Published for {data.publishedRoleCount} of {data.totalRoleCount} roles
+        </Typography>
+        {data.roleCoverage.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {data.roleCoverage.map((role) => {
+              const color = getRoleColor(role.canonicalName);
+              return role.isPublished ? (
+                <Badge
+                  key={role.canonicalName}
+                  tone="neutral"
+                  style={{ backgroundColor: color.bg, color: color.text }}
+                >
+                  {role.displayName}
+                </Badge>
+              ) : (
+                <Link key={role.canonicalName} href={`/student/resumes?role=${encodeURIComponent(role.canonicalName)}`}>
+                  <Badge
+                    tone="neutral"
+                    className="border bg-white"
+                    style={{ borderColor: color.border, color: color.text }}
+                  >
+                    {role.displayName}
+                  </Badge>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <Typography variant="body" style={{ color: MUTED_TEXT_COLOR }}>
+            No job roles have been set up yet.
+          </Typography>
+        )}
+      </Card>
 
-      {profile ? (
-        <ProfileSummary profile={profile} />
-      ) : (
-        resume?.status !== "READY" && (
-          <NSTypography variant="paragraph-md-p2" color={MUTED_TEXT_COLOR}>
-            Your extracted profile will appear here once your resume finishes processing.
-          </NSTypography>
-        )
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {(Object.keys(BUCKET_LABELS) as Array<keyof typeof BUCKET_LABELS>).map((bucket) => (
+          <StatCard
+            key={bucket}
+            label={BUCKET_LABELS[bucket]}
+            value={data.bucketCounts[bucket]}
+            valueColor={BUCKET_COLORS[bucket]}
+          />
+        ))}
+      </div>
+
+      <Card className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <Typography variant="h2">Recent results</Typography>
+          <Link href="/student/applications" className="text-sm font-medium" style={{ color: BRAND_COLOR }}>
+            View all →
+          </Link>
+        </div>
+        {data.recentResults.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {data.recentResults.map((result) => (
+              <div
+                key={result.jobId}
+                className="flex items-center justify-between gap-4 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
+              >
+                <div className="flex flex-col">
+                  <Typography variant="body" as="span" className="font-medium">
+                    {result.title}
+                  </Typography>
+                  {result.company && (
+                    <Typography variant="caption">{result.company}</Typography>
+                  )}
+                </div>
+                <Badge tone="neutral" style={{ color: BUCKET_COLORS[result.bucket] }}>
+                  {BUCKET_LABELS[result.bucket]}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Typography variant="body" style={{ color: MUTED_TEXT_COLOR }}>
+            No results published yet. Check back once a placement cell publishes results for a job you&apos;re matched against.
+          </Typography>
+        )}
+      </Card>
+
+      <Card className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <Typography variant="h2">Profile {data.profileCompletionPercent}% complete</Typography>
+          <Link href="/student/profile" className="text-sm font-medium" style={{ color: BRAND_COLOR }}>
+            Complete your profile →
+          </Link>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${data.profileCompletionPercent}%`, backgroundColor: BRAND_COLOR }}
+          />
+        </div>
+      </Card>
+
+      {data.skills.length > 0 && (
+        <Card className="flex flex-col gap-3">
+          <Typography variant="h2">Skills</Typography>
+          <div className="flex flex-wrap gap-2">
+            {data.skills.map((skill) => {
+              const color = getRoleColor(skill.category);
+              return (
+                <Badge
+                  key={skill.canonicalName}
+                  tone="neutral"
+                  style={{ backgroundColor: color.bg, color: color.text }}
+                >
+                  {skill.name}
+                </Badge>
+              );
+            })}
+          </div>
+        </Card>
       )}
     </div>
   );
