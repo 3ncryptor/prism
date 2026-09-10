@@ -6,7 +6,7 @@ import { NSPill, NSTypography } from "@newtonschool/grauity";
 import type { Job } from "@/lib/schemas/job";
 import { JobUploadForm } from "@/app/admin/JobUploadForm";
 import { jobStatusColor, jobStatusLabel } from "@/app/admin/jobStatusDisplay";
-import { MUTED_TEXT_COLOR } from "@/lib/grauityTheme";
+import { MUTED_TEXT_COLOR, BRAND_COLOR } from "@/lib/grauityTheme";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { EmptyState } from "@/lib/layout/EmptyState";
 
@@ -56,9 +56,14 @@ export function AdminDashboard({ initialJobs }: AdminDashboardProps) {
                     </NSTypography>
                   )}
                 </div>
-                <NSPill color={jobStatusColor(job.status)} isActive>
-                  {jobStatusLabel(job.status)}
-                </NSPill>
+                <div className="flex items-center gap-2">
+                  <NSTypography variant="paragraph-sb-p3" color={job.listingStatus === "LIVE" ? BRAND_COLOR : MUTED_TEXT_COLOR}>
+                    {job.listingStatus === "LIVE" ? "Live" : "Draft"}
+                  </NSTypography>
+                  <NSPill color={jobStatusColor(job.status)} isActive>
+                    {jobStatusLabel(job.status)}
+                  </NSPill>
+                </div>
               </Link>
             ))}
           </div>

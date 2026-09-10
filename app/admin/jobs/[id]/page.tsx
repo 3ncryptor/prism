@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/guard";
 import { jobRepository } from "@/lib/db/repositories/jobRepository";
+import { jobProfileRepository } from "@/lib/db/repositories/jobProfileRepository";
 import { matchRunRepository } from "@/lib/db/repositories/matchRunRepository";
 import { matchResultRepository } from "@/lib/db/repositories/matchResultRepository";
 import { ClientOnlyJobDetail } from "@/app/admin/jobs/[id]/ClientOnlyJobDetail";
@@ -14,6 +15,8 @@ export default async function JobDetailPage({ params }: PageProps<"/admin/jobs/[
   const job = await jobRepository.get(id);
   if (!job) notFound();
 
+  const jobProfile = await jobProfileRepository.getByJobId(id);
+
   const matchRuns = await matchRunRepository.listByJob(id);
   const latestRun = matchRuns[0] ?? null;
 
@@ -24,5 +27,12 @@ export default async function JobDetailPage({ params }: PageProps<"/admin/jobs/[
     for (const result of results) bucketCounts[result.bucket] += 1;
   }
 
-  return <ClientOnlyJobDetail job={job} initialLatestRun={latestRun} initialBucketCounts={bucketCounts} />;
+  return (
+    <ClientOnlyJobDetail
+      job={job}
+      jobProfile={jobProfile}
+      initialLatestRun={latestRun}
+      initialBucketCounts={bucketCounts}
+    />
+  );
 }

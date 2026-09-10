@@ -19,6 +19,14 @@ export class JobNotReadyError extends Error {
   }
 }
 
+/** docs/screens.md §4.10 (feature 27c): Run Matching is disabled until an admin flips the JD to Live. */
+export class JobNotLiveError extends Error {
+  constructor() {
+    super("Job listing must be Live before matching can run");
+    this.name = "JobNotLiveError";
+  }
+}
+
 export class NoActiveScoringConfigError extends Error {
   constructor() {
     super("No active scoring config found — seed one first");
@@ -55,6 +63,7 @@ export async function startMatchRun(
   const job = await deps.jobs.get(jobId);
   if (!job) throw new JobNotFoundError();
   if (job.status !== "READY") throw new JobNotReadyError();
+  if (job.listingStatus !== "LIVE") throw new JobNotLiveError();
 
   const scoringConfig = await deps.scoringConfigs.getActive();
   if (!scoringConfig) throw new NoActiveScoringConfigError();

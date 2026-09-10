@@ -154,3 +154,50 @@ export async function hideResults(jobId: string, deps: PublishDeps = defaultPubl
   if (!updated) throw new JobNotFoundError();
   return updated;
 }
+
+type ListingDeps = {
+  jobs: Pick<JobRepository, "get" | "setListingStatus" | "setLeaderboardSize">;
+};
+
+const defaultListingDeps: ListingDeps = { jobs: jobRepository };
+
+/** docs/screens.md §4.10 (feature 27c): Draft <-> Live toggle. */
+export async function setListingStatus(
+  jobId: string,
+  listingStatus: Job["listingStatus"],
+  deps: ListingDeps = defaultListingDeps,
+): Promise<Job> {
+  const job = await deps.jobs.get(jobId);
+  if (!job) throw new JobNotFoundError();
+
+  await deps.jobs.setListingStatus(jobId, listingStatus);
+  const updated = await deps.jobs.get(jobId);
+  if (!updated) throw new JobNotFoundError();
+  return updated;
+}
+
+export class InvalidLeaderboardSizeError extends Error {
+  constructor() {
+    super("Leaderboard size must be a positive integer");
+    this.name = "InvalidLeaderboardSizeError";
+  }
+}
+
+/** docs/screens.md §4.10 (feature 27c): admin-configurable "Show top [N]". */
+export async function setLeaderboardSize(
+  jobId: string,
+  leaderboardSize: number,
+  deps: ListingDeps = defaultListingDeps,
+): Promise<Job> {
+  if (!Number.isInteger(leaderboardSize) || leaderboardSize <= 0) {
+    throw new InvalidLeaderboardSizeError();
+  }
+
+  const job = await deps.jobs.get(jobId);
+  if (!job) throw new JobNotFoundError();
+
+  await deps.jobs.setLeaderboardSize(jobId, leaderboardSize);
+  const updated = await deps.jobs.get(jobId);
+  if (!updated) throw new JobNotFoundError();
+  return updated;
+}

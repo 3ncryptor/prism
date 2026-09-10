@@ -4,6 +4,7 @@ import {
   startMatchRun,
   JobNotFoundError,
   JobNotReadyError,
+  JobNotLiveError,
   NoActiveScoringConfigError,
 } from "@/lib/services/matchingService";
 import { checkRateLimit, RateLimitExceededError, RATE_LIMITS } from "@/lib/services/rateLimitService";
@@ -38,7 +39,11 @@ export async function POST(_request: Request, ctx: RouteContext<"/api/admin/jobs
     if (error instanceof JobNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
-    if (error instanceof JobNotReadyError || error instanceof NoActiveScoringConfigError) {
+    if (
+      error instanceof JobNotReadyError ||
+      error instanceof JobNotLiveError ||
+      error instanceof NoActiveScoringConfigError
+    ) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     if (error instanceof RateLimitExceededError) {

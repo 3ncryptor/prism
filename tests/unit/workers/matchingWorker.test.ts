@@ -30,6 +30,8 @@ function makeJob(): Job {
     archived: false,
     publishedMatchRunId: null,
     publishedAt: null,
+    listingStatus: "LIVE",
+    leaderboardSize: 10,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

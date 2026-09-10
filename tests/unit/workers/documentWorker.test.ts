@@ -185,6 +185,8 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     archived: false,
     publishedMatchRunId: null,
     publishedAt: null,
+    listingStatus: "LIVE",
+    leaderboardSize: 10,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

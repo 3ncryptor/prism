@@ -1,11 +1,26 @@
 import { Collection, ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/client";
-import type { Job, JobStatus } from "@/lib/schemas/job";
+import type { Job, JobListingStatus, JobStatus } from "@/lib/schemas/job";
 
-export type JobDocument = Omit<Job, "_id"> & { _id: ObjectId };
+const DEFAULT_LEADERBOARD_SIZE = 10;
+
+// listingStatus/leaderboardSize (feature 27c) are new, required fields —
+// documents created before this feature shipped won't have them in Mongo.
+// Rather than a one-off migration script for a handful of dev-era docs,
+// default them defensively on read; new docs get them set at create time.
+export type JobDocument = Omit<Job, "_id" | "listingStatus" | "leaderboardSize"> & {
+  _id: ObjectId;
+  listingStatus?: JobListingStatus;
+  leaderboardSize?: number;
+};
 
 function toJob(doc: JobDocument): Job {
-  return { ...doc, _id: doc._id.toString() };
+  return {
+    ...doc,
+    _id: doc._id.toString(),
+    listingStatus: doc.listingStatus ?? "DRAFT",
+    leaderboardSize: doc.leaderboardSize ?? DEFAULT_LEADERBOARD_SIZE,
+  };
 }
 
 export class JobRepository {
@@ -28,6 +43,8 @@ export class JobRepository {
       archived: false,
       publishedMatchRunId: null,
       publishedAt: null,
+      listingStatus: "DRAFT",
+      leaderboardSize: DEFAULT_LEADERBOARD_SIZE,
       createdAt: now,
       updatedAt: now,
     };
@@ -89,6 +106,24 @@ export class JobRepository {
     await collection.updateOne(
       { _id: new ObjectId(jobId) },
       { $set: { publishedMatchRunId: null, publishedAt: null, updatedAt: new Date() } },
+    );
+  }
+
+  /** docs/screens.md §4.10 (feature 27c): Draft <-> Live toggle. */
+  async setListingStatus(jobId: string, listingStatus: JobListingStatus): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateOne(
+      { _id: new ObjectId(jobId) },
+      { $set: { listingStatus, updatedAt: new Date() } },
+    );
+  }
+
+  /** docs/screens.md §4.10 (feature 27c): admin-configurable leaderboard top-N. */
+  async setLeaderboardSize(jobId: string, leaderboardSize: number): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateOne(
+      { _id: new ObjectId(jobId) },
+      { $set: { leaderboardSize, updatedAt: new Date() } },
     );
   }
 }

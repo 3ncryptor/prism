@@ -2,6 +2,7 @@ import {
   startMatchRun,
   JobNotFoundError,
   JobNotReadyError,
+  JobNotLiveError,
   NoActiveScoringConfigError,
 } from "@/lib/services/matchingService";
 import type { Job } from "@/lib/schemas/job";
@@ -17,6 +18,8 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     archived: false,
     publishedMatchRunId: null,
     publishedAt: null,
+    listingStatus: "LIVE",
+    leaderboardSize: 10,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -59,6 +62,11 @@ describe("startMatchRun", () => {
   it("throws JobNotReadyError when the job hasn't finished processing", async () => {
     const deps = makeDeps({ jobs: { get: jest.fn().mockResolvedValue(makeJob({ status: "STRUCTURING" })) } });
     await expect(startMatchRun("job-1", deps)).rejects.toThrow(JobNotReadyError);
+  });
+
+  it("throws JobNotLiveError when the listing is still Draft", async () => {
+    const deps = makeDeps({ jobs: { get: jest.fn().mockResolvedValue(makeJob({ listingStatus: "DRAFT" })) } });
+    await expect(startMatchRun("job-1", deps)).rejects.toThrow(JobNotLiveError);
   });
 
   it("throws NoActiveScoringConfigError when no scoring config is active", async () => {
