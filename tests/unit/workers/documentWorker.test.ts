@@ -1,5 +1,7 @@
+import { UnrecoverableError } from "bullmq";
 import { processResumeJob, processJobJob } from "@/workers/document-worker";
 import { InvalidExtractionError } from "@/lib/extraction/normalizeProfile";
+import { ExtractionQuotaExceededError } from "@/lib/extraction/extractionProvider";
 import type { Resume } from "@/lib/schemas/resume";
 import type { StudentProfile } from "@/lib/schemas/studentProfile";
 import type { Job } from "@/lib/schemas/job";
@@ -154,6 +156,23 @@ describe("processResumeJob", () => {
       message: "S3 unreachable",
     });
   });
+
+  it("marks FAILED with EXTRACTION_QUOTA_EXCEEDED and throws an UnrecoverableError so BullMQ does not retry", async () => {
+    const deps = makeDeps({
+      extractionProvider: {
+        modelId: "gemini-3.6-flash",
+        extractResume: jest.fn().mockRejectedValue(new ExtractionQuotaExceededError()),
+        extractJD: jest.fn(),
+      },
+    });
+
+    await expect(processResumeJob("resume-1", deps)).rejects.toBeInstanceOf(UnrecoverableError);
+
+    expect(deps.resumes.updateStatus).toHaveBeenNthCalledWith(4, "resume-1", "FAILED", {
+      code: "EXTRACTION_QUOTA_EXCEEDED",
+      message: expect.stringContaining("quota"),
+    });
+  });
 });
 
 function makeJob(overrides: Partial<Job> = {}): Job {
@@ -294,6 +313,23 @@ describe("processJobJob", () => {
     expect(deps.jobs.updateStatus).toHaveBeenNthCalledWith(2, "job-1", "FAILED", {
       code: "EXTRACTION_ERROR",
       message: "S3 unreachable",
+    });
+  });
+
+  it("marks FAILED with EXTRACTION_QUOTA_EXCEEDED and throws an UnrecoverableError so BullMQ does not retry", async () => {
+    const deps = makeJobDeps({
+      extractionProvider: {
+        modelId: "gemini-3.6-flash",
+        extractResume: jest.fn(),
+        extractJD: jest.fn().mockRejectedValue(new ExtractionQuotaExceededError()),
+      },
+    });
+
+    await expect(processJobJob("job-1", deps)).rejects.toBeInstanceOf(UnrecoverableError);
+
+    expect(deps.jobs.updateStatus).toHaveBeenNthCalledWith(4, "job-1", "FAILED", {
+      code: "EXTRACTION_QUOTA_EXCEEDED",
+      message: expect.stringContaining("quota"),
     });
   });
 });

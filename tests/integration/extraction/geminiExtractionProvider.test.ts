@@ -21,10 +21,16 @@ Skills
 JavaScript, TypeScript, React, Node.js, MongoDB, Git
 `;
 
-const hasRealApiKey = Boolean(process.env.GEMINI_API_KEY);
-const maybeDescribe = hasRealApiKey ? describe : describe.skip;
+// This hits the real Gemini API and spends a real request against the
+// free tier's 20-per-day quota — the same quota real resume/JD uploads
+// depend on. Gating on "a key happens to be configured" (as this used to)
+// meant plain `npm test` silently burned that shared quota on every run,
+// which is the root cause of production uploads failing with 429s even on
+// the first upload of the day. Require an explicit opt-in instead.
+const shouldRun = process.env.RUN_GEMINI_INTEGRATION_TESTS === "true";
+const maybeDescribe = shouldRun ? describe : describe.skip;
 
-maybeDescribe("GeminiExtractionProvider (real Gemini API)", () => {
+maybeDescribe("GeminiExtractionProvider (real Gemini API) — opt-in via RUN_GEMINI_INTEGRATION_TESTS=true", () => {
   it("returns JSON that normalizes into a valid StudentProfile", async () => {
     const provider: ExtractionProvider = new GeminiExtractionProvider();
 

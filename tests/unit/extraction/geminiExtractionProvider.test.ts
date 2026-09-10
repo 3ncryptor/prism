@@ -78,4 +78,41 @@ describe("generateContentWithRetry", () => {
     await expect(promise).rejects.toBe(error);
     expect(generateContent).toHaveBeenCalledTimes(4);
   });
+
+  it("does not retry a 429 caused by daily-quota exhaustion — retrying cannot succeed until the quota resets", async () => {
+    const error = new GoogleGenerativeAIFetchError("quota exceeded", 429, "Too Many Requests", [
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        violations: [
+          {
+            quotaMetric: "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+          },
+        ],
+      },
+    ]);
+    const generateContent = jest.fn().mockRejectedValue(error);
+
+    await expect(generateContentWithRetry(generateContent, "prompt")).rejects.toBe(error);
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("still retries a 429 with no daily-quota violation (a transient per-minute rate limit)", async () => {
+    const generateContent = jest
+      .fn()
+      .mockRejectedValueOnce(new GoogleGenerativeAIFetchError("rate limited", 429, "Too Many Requests", [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          violations: [{ quotaId: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier" }],
+        },
+      ]))
+      .mockResolvedValueOnce(makeResponse("ok"));
+
+    const promise = generateContentWithRetry(generateContent, "prompt");
+    await jest.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.response.text()).toBe("ok");
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
 });

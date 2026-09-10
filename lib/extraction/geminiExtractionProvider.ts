@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, GoogleGenerativeAIFetchError } from "@google/genera
 import { getGeminiApiKey } from "@/lib/config/env";
 import { buildResumeExtractionPrompt } from "@/lib/extraction/prompts/resume-extraction-v1";
 import { buildJDExtractionPrompt } from "@/lib/extraction/prompts/jd-extraction-v1";
-import type { ExtractionProvider } from "@/lib/extraction/extractionProvider";
+import { ExtractionQuotaExceededError, type ExtractionProvider } from "@/lib/extraction/extractionProvider";
 import { logger } from "@/lib/logger";
 import { withTiming } from "@/lib/observability/timing";
 
@@ -20,11 +20,32 @@ const RETRYABLE_STATUS_CODES = new Set([429, 503]);
 const MAX_ATTEMPTS = 4; // 1 initial call + 3 retries
 const BASE_RETRY_DELAY_MS = 1000;
 
+/**
+ * A 429 can mean two very different things: a short-lived per-minute rate
+ * limit (worth retrying) or a hard daily quota cap (retrying cannot help
+ * until the quota resets, no matter how many attempts are spent). Google's
+ * own `errorDetails` distinguishes them via a `QuotaFailure` violation
+ * whose `quotaId` names the period — e.g.
+ * "GenerateRequestsPerDayPerProjectPerModel-FreeTier" — verified live
+ * against the actual error shape hit in this project, not assumed.
+ */
+function isDailyQuotaExceededError(error: unknown): boolean {
+  if (!(error instanceof GoogleGenerativeAIFetchError) || error.status !== 429) return false;
+  return (error.errorDetails ?? []).some((detail) => {
+    const violations = (detail as { violations?: unknown }).violations;
+    if (!Array.isArray(violations)) return false;
+    return violations.some(
+      (violation) => typeof (violation as { quotaId?: unknown }).quotaId === "string" && (violation as { quotaId: string }).quotaId.includes("PerDay"),
+    );
+  });
+}
+
 function isRetryableGeminiError(error: unknown): boolean {
   return (
     error instanceof GoogleGenerativeAIFetchError &&
     error.status !== undefined &&
-    RETRYABLE_STATUS_CODES.has(error.status)
+    RETRYABLE_STATUS_CODES.has(error.status) &&
+    !isDailyQuotaExceededError(error)
   );
 }
 
@@ -67,12 +88,26 @@ async function generateJson(modelId: string, prompt: string): Promise<unknown> {
     generationConfig: { responseMimeType: "application/json" },
   });
 
-  const result = await withTiming(
-    logger,
-    "gemini.generateContent",
-    () => generateContentWithRetry((p) => model.generateContent(p), prompt),
-    { extra: { model: modelId } },
-  );
+  let result: { response: { text: () => string } };
+  try {
+    result = await withTiming(
+      logger,
+      "gemini.generateContent",
+      () => generateContentWithRetry((p) => model.generateContent(p), prompt),
+      { extra: { model: modelId } },
+    );
+  } catch (error) {
+    // Translate the vendor-specific daily-quota error into the shared,
+    // provider-agnostic error before it reaches callers (the document
+    // worker, ultimately the student-facing UI) — those layers should
+    // never need to know Gemini's error shape, and must never surface the
+    // raw multi-paragraph vendor error text to an end user.
+    if (isDailyQuotaExceededError(error)) {
+      logger.error({ err: error, model: modelId }, "Gemini daily request quota exhausted");
+      throw new ExtractionQuotaExceededError();
+    }
+    throw error;
+  }
   const responseText = result.response.text();
 
   try {

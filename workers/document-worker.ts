@@ -1,5 +1,5 @@
 import "@/lib/config/loadEnv";
-import { Worker, type Job } from "bullmq";
+import { UnrecoverableError, Worker, type Job } from "bullmq";
 import { getRedisConnection, closeRedisConnection } from "@/lib/queue/connection";
 import { closeMongoConnection } from "@/lib/db/client";
 import { resumeRepository, type ResumeRepository } from "@/lib/db/repositories/resumeRepository";
@@ -29,7 +29,7 @@ import {
   indexStudentProfile as defaultIndexStudentProfile,
   indexJobProfile as defaultIndexJobProfile,
 } from "@/lib/services/embeddingService";
-import type { ExtractionProvider } from "@/lib/extraction/extractionProvider";
+import { ExtractionQuotaExceededError, type ExtractionProvider } from "@/lib/extraction/extractionProvider";
 import { logger } from "@/lib/logger";
 import { withTiming } from "@/lib/observability/timing";
 import type { DocumentProcessingJobPayload } from "@/lib/queue/jobTypes";
@@ -154,6 +154,16 @@ export async function processResumeJob(
 
     await deps.resumes.updateStatus(resumeId, "READY");
   } catch (error) {
+    if (error instanceof ExtractionQuotaExceededError) {
+      await deps.resumes.updateStatus(resumeId, "FAILED", {
+        code: "EXTRACTION_QUOTA_EXCEEDED",
+        message: error.message,
+      });
+      // Retrying now cannot succeed until the vendor's quota resets, so
+      // don't let BullMQ burn its 3 queue-level attempts re-running the
+      // whole job (each of which would hit the same quota again).
+      throw new UnrecoverableError(error.message);
+    }
     await deps.resumes.updateStatus(resumeId, "FAILED", {
       code: "EXTRACTION_ERROR",
       message: error instanceof Error ? error.message : String(error),
@@ -223,6 +233,13 @@ export async function processJobJob(
 
     await deps.jobs.updateStatus(jobId, "READY");
   } catch (error) {
+    if (error instanceof ExtractionQuotaExceededError) {
+      await deps.jobs.updateStatus(jobId, "FAILED", {
+        code: "EXTRACTION_QUOTA_EXCEEDED",
+        message: error.message,
+      });
+      throw new UnrecoverableError(error.message);
+    }
     await deps.jobs.updateStatus(jobId, "FAILED", {
       code: "EXTRACTION_ERROR",
       message: error instanceof Error ? error.message : String(error),
