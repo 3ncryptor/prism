@@ -1,11 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Self-contained production server bundle (only the deps actually used,
-  // traced automatically) instead of requiring the full node_modules tree
-  // alongside the build output — the standard shape for a containerized
-  // deployment.
-  output: "standalone",
   // Removes the `X-Powered-By: Next.js` response header — a minor
   // information-disclosure reduction (don't advertise the framework/version).
   poweredByHeader: false,

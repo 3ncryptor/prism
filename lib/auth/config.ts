@@ -23,6 +23,14 @@ class EmailNotVerifiedSignInError extends CredentialsSignin {
 const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Auth.js only auto-trusts the request Host header on platforms it
+  // detects itself (Vercel). Self-hosted deployments (this app's Docker
+  // container, or any non-Vercel host) get an UntrustedHost error on
+  // every single auth request otherwise — surfaced to users as a generic
+  // "There was a problem with the server configuration" on /sign-in.
+  // Safe here: this app is a single-tenant deployment behind its own
+  // reverse proxy, not a multi-tenant host serving arbitrary domains.
+  trustHost: true,
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
   pages: { signIn: "/sign-in" },
   providers: [
