@@ -10,6 +10,7 @@ import { Badge } from "@/lib/ui/Badge";
 import { Typography } from "@/lib/ui/Typography";
 import { EmptyState } from "@/lib/layout/EmptyState";
 import { MUTED_TEXT_COLOR } from "@/lib/designTokens";
+import { formatTimestamp } from "@/lib/formatTimestamp";
 import type { AdminDashboardData, NeedsAttentionJob } from "@/lib/services/adminDashboardService";
 
 const BUCKET_LABELS = { BEST_FIT: "Best Fit", MODERATE_FIT: "Moderate Fit", LOW_FIT: "Low Fit" } as const;
@@ -137,7 +138,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
                 <Typography variant="body">
                   {entry.action} · {entry.targetType} {entry.targetId}
                 </Typography>
-                <Typography variant="caption">{new Date(entry.createdAt).toLocaleString()}</Typography>
+                <Typography variant="caption">{formatTimestamp(entry.createdAt)}</Typography>
               </div>
             ))}
           </div>

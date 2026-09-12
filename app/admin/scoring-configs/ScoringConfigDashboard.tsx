@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ScoringConfig } from "@/lib/schemas/scoringConfig";
 import { MUTED_TEXT_COLOR } from "@/lib/designTokens";
+import { formatTimestamp } from "@/lib/formatTimestamp";
 import { PageHeader } from "@/lib/layout/PageHeader";
 import { Card } from "@/lib/layout/Card";
 import { Typography } from "@/lib/ui/Typography";
@@ -197,7 +198,7 @@ export function ScoringConfigDashboard({ initialVersions }: ScoringConfigDashboa
                     <Typography variant="body" as="span" className="font-semibold">
                       {version.version}
                     </Typography>
-                    <Typography variant="caption">{new Date(version.createdAt).toLocaleString()}</Typography>
+                    <Typography variant="caption">{formatTimestamp(version.createdAt)}</Typography>
                   </div>
                   {version.isActive ? (
                     <Badge tone="success">Active</Badge>
