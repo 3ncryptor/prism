@@ -210,6 +210,31 @@ describe("getAdminDashboardData", () => {
     expect(result.aggregateOutcomes).toEqual({ BEST_FIT: 1, MODERATE_FIT: 0, LOW_FIT: 1 });
   });
 
+  // Regression for a bug found during a live comprehensive test: every
+  // published candidate happened to be ineligible, and this stat silently
+  // showed 0/0/0 because listByRun's default excludes ineligible results
+  // — this is the admin's own operational view of how a run scored, not
+  // the student-facing leaderboard, so ineligible candidates must count.
+  it("counts ineligible candidates in aggregate outcomes (admin view, not the student leaderboard)", async () => {
+    const listByRun = jest.fn().mockResolvedValue([
+      makeResult({ bucket: "LOW_FIT", eligible: false }),
+      makeResult({ _id: "r2", bucket: "LOW_FIT", eligible: false }),
+    ]);
+    const deps = makeDeps({
+      jobs: {
+        list: jest
+          .fn()
+          .mockResolvedValue([makeJob({ _id: "j1", listingStatus: "LIVE", publishedMatchRunId: "run-1" })]),
+      },
+      matchResults: { listByRun },
+    });
+
+    const result = await getAdminDashboardData(deps);
+
+    expect(result.aggregateOutcomes).toEqual({ BEST_FIT: 0, MODERATE_FIT: 0, LOW_FIT: 2 });
+    expect(listByRun).toHaveBeenCalledWith("run-1", { includeIneligible: true });
+  });
+
   it("passes through recent activity from the audit log", async () => {
     const entries = [makeAuditLog()];
     const deps = makeDeps({ auditLogs: { listRecent: jest.fn().mockResolvedValue(entries) } });

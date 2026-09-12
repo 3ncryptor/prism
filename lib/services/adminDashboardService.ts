@@ -111,7 +111,14 @@ export async function getAdminDashboardData(deps: Deps = defaultDeps): Promise<A
   const aggregateOutcomes: Record<FitBucket, number> = { BEST_FIT: 0, MODERATE_FIT: 0, LOW_FIT: 0 };
   const liveJobsWithPublishedRun = jobs.filter((job) => job.listingStatus === "LIVE" && job.publishedMatchRunId);
   for (const job of liveJobsWithPublishedRun) {
-    const results = await deps.matchResults.listByRun(job.publishedMatchRunId as string);
+    // includeIneligible: true — this is the admin's own operational view
+    // of how a published run actually scored (distinct from the
+    // student-facing leaderboard, which correctly hides ineligible
+    // candidates entirely). listByRun's default excludes them, which
+    // silently zeroed this stat out for any run where every candidate
+    // happened to be ineligible — confirmed live during a comprehensive
+    // test with real data.
+    const results = await deps.matchResults.listByRun(job.publishedMatchRunId as string, { includeIneligible: true });
     for (const result of results) {
       aggregateOutcomes[result.bucket] += 1;
     }
