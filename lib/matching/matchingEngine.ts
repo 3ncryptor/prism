@@ -47,7 +47,7 @@ export function evaluateMatch(
   };
 
   let score = aggregateScore(categoryScores, config);
-  score = applyMandatoryPenalty(score, skillResult.mandatoryMissed, config.mandatoryPenalty);
+  score = applyMandatoryPenalty(score, skillResult.mandatoryMissedCount, skillResult.mandatoryTotal, config.mandatoryPenalty);
   score = Math.max(0, Math.min(100, score));
 
   const evidence = [

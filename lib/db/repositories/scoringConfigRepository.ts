@@ -2,10 +2,27 @@ import { Collection, ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/client";
 import type { ScoringConfig } from "@/lib/schemas/scoringConfig";
 
-export type ScoringConfigDocument = Omit<ScoringConfig, "_id"> & { _id: ObjectId };
+// `semanticThresholds.weak` (added 2026-09) is new — documents created
+// before this feature shipped won't have it in Mongo. Defensively
+// defaulted on read (same pattern as Job.listingStatus/leaderboardSize in
+// jobRepository.ts), never backfilled in place: ScoringConfig is
+// immutable once a matchRun could reference it (buildPlan.md §46), so an
+// old config keeps scoring exactly as it always did — this default only
+// keeps old documents from crashing zod validation, it doesn't change
+// what they mean.
+export type ScoringConfigDocument = Omit<ScoringConfig, "_id" | "semanticThresholds"> & {
+  _id: ObjectId;
+  semanticThresholds: Omit<ScoringConfig["semanticThresholds"], "weak"> & { weak?: number };
+};
+
+const DEFAULT_WEAK_THRESHOLD = 0.55;
 
 function toScoringConfig(doc: ScoringConfigDocument): ScoringConfig {
-  return { ...doc, _id: doc._id.toString() };
+  return {
+    ...doc,
+    _id: doc._id.toString(),
+    semanticThresholds: { ...doc.semanticThresholds, weak: doc.semanticThresholds.weak ?? DEFAULT_WEAK_THRESHOLD },
+  };
 }
 
 export class ScoringConfigRepository {

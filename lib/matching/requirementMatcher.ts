@@ -3,6 +3,7 @@ import type { JobProfile } from "@/lib/schemas/jobProfile";
 import type { ScoringConfig } from "@/lib/schemas/scoringConfig";
 import type { MatchEvidence, RetrievalMap } from "@/lib/matching/types";
 import { retrievalKey } from "@/lib/matching/types";
+import { scoreSemanticMatch } from "@/lib/matching/semanticMatch";
 
 export interface RequirementMatchResult {
   categoryScore: number;
@@ -45,26 +46,24 @@ export function matchOtherRequirements(
       (text) => description.includes(text.toLowerCase()) || text.toLowerCase().includes(description),
     );
 
-    const retrieved = retrieval.get(retrievalKey("SEMANTIC_REQUIREMENT", `${index}`));
-    let score = 0;
-    let reason = "No supporting evidence found";
+    let score: number;
+    let reason: string;
+    let matchedEvidenceText: string | undefined;
 
     if (directMatch) {
       score = 1.0;
       reason = "Direct certification/achievement/coursework match";
-    } else if (retrieved && retrieved.score >= config.semanticThresholds.strong) {
-      score = retrieved.score;
-      reason = "Strong semantic match";
-    } else if (retrieved && retrieved.score >= config.semanticThresholds.possible) {
-      score = retrieved.score;
-      reason = "Possible semantic match";
+      matchedEvidenceText = directMatch;
+    } else {
+      const retrieved = retrieval.get(retrievalKey("SEMANTIC_REQUIREMENT", `${index}`));
+      ({ score, reason, matchedEvidenceText } = scoreSemanticMatch(retrieved, config.semanticThresholds));
     }
 
     weightedSum += score * weight;
     evidence.push({
       category: "REQUIREMENT",
       requirement: requirement.description,
-      matchedEvidence: directMatch ?? retrieved?.text,
+      matchedEvidence: matchedEvidenceText,
       sourceType: "RESUME",
       score,
       reason,

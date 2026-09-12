@@ -32,6 +32,7 @@ interface FormState {
   moderateFit: string;
   strong: string;
   possible: string;
+  weak: string;
   mandatoryPenalty: string;
 }
 
@@ -50,6 +51,7 @@ function toFormState(source: ScoringConfig): FormState {
     moderateFit: String(source.buckets.moderateFit),
     strong: String(source.semanticThresholds.strong),
     possible: String(source.semanticThresholds.possible),
+    weak: String(source.semanticThresholds.weak),
     mandatoryPenalty: String(source.mandatoryPenalty),
   };
 }
@@ -61,6 +63,7 @@ const BLANK_FORM: FormState = {
   moderateFit: "",
   strong: "",
   possible: "",
+  weak: "",
   mandatoryPenalty: "",
 };
 
@@ -130,7 +133,11 @@ export function ScoringConfigDashboard({ initialVersions }: ScoringConfigDashboa
             other: parseFloat(form.weights.other),
           },
           buckets: { bestFit: parseFloat(form.bestFit), moderateFit: parseFloat(form.moderateFit) },
-          semanticThresholds: { strong: parseFloat(form.strong), possible: parseFloat(form.possible) },
+          semanticThresholds: {
+            strong: parseFloat(form.strong),
+            possible: parseFloat(form.possible),
+            weak: parseFloat(form.weak),
+          },
           mandatoryPenalty: parseFloat(form.mandatoryPenalty),
         }),
       });
@@ -181,7 +188,8 @@ export function ScoringConfigDashboard({ initialVersions }: ScoringConfigDashboa
                 Buckets: Best Fit ≥ {active.buckets.bestFit}, Moderate Fit ≥ {active.buckets.moderateFit}
               </Typography>
               <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
-                Semantic thresholds: strong ≥ {active.semanticThresholds.strong}, possible ≥ {active.semanticThresholds.possible}
+                Semantic thresholds: strong ≥ {active.semanticThresholds.strong}, possible ≥ {active.semanticThresholds.possible}, weak ≥{" "}
+                {active.semanticThresholds.weak}
               </Typography>
               <Typography variant="caption" style={{ color: MUTED_TEXT_COLOR }}>
                 Mandatory penalty: {active.mandatoryPenalty}
@@ -264,6 +272,10 @@ export function ScoringConfigDashboard({ initialVersions }: ScoringConfigDashboa
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Possible semantic threshold
               <Input name="possible" value={form.possible} onChange={(e) => setForm((f) => ({ ...f, possible: e.target.value }))} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Weak semantic threshold
+              <Input name="weak" value={form.weak} onChange={(e) => setForm((f) => ({ ...f, weak: e.target.value }))} />
             </label>
           </div>
           <label className="flex flex-col gap-1 text-sm text-gray-700">

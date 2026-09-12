@@ -37,8 +37,9 @@ describe("evaluateMatch", () => {
     expect(result.missingRequirements).toContain("Python");
     // With the mandatory skill fully missing, the skills category score is 0
     // and the penalty is applied on top — the final score must be materially
-    // reduced relative to a config with no penalty at all.
-    const withoutPenalty = evaluateMatch(student, job, makeScoringConfig({ mandatoryPenalty: 1 }), new Map());
+    // reduced relative to a config with no penalty at all. mandatoryPenalty
+    // is the worst-case cut (0 = no cut), not a retention fraction.
+    const withoutPenalty = evaluateMatch(student, job, makeScoringConfig({ mandatoryPenalty: 0 }), new Map());
     expect(result.score).toBeLessThan(withoutPenalty.score);
   });
 

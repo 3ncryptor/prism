@@ -20,6 +20,18 @@ export const scoringConfigSchema = z.object({
   semanticThresholds: z.object({
     strong: z.number(),
     possible: z.number(),
+    /**
+     * A third, lower tier below `possible`: real cosine similarity, not
+     * noise, but not strong enough for full credit. Confirmed live
+     * (2026-09): a candidate with a clearly relevant backend project
+     * ("built a Node.js backend with payment integration") scored a flat
+     * 0 against a JD responsibility describing the same work, because
+     * the retrieval fell just short of `possible` — the previous 0/1
+     * cliff at `possible` treated "almost a match" identically to "no
+     * evidence at all". Below `weak` is still treated as noise (embedding
+     * spaces have a nonzero baseline similarity between nearly anything).
+     */
+    weak: z.number(),
   }),
   mandatoryPenalty: z.number(),
   createdBy: z.string(),

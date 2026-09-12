@@ -35,7 +35,7 @@ function makeScoringConfig(): ScoringConfig {
     isActive: true,
     weights: { hardRequirements: 0.25, skills: 0.3, experience: 0.15, projects: 0.15, education: 0.1, other: 0.05 },
     buckets: { bestFit: 80, moderateFit: 60 },
-    semanticThresholds: { strong: 0.85, possible: 0.75 },
+    semanticThresholds: { strong: 0.85, possible: 0.75, weak: 0.55 },
     mandatoryPenalty: 0.75,
     createdBy: "admin-1",
     createdAt: new Date(),

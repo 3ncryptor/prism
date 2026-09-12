@@ -33,7 +33,7 @@ describe("matchSkills", () => {
     expect(result.evidence[0].reason).toBe("Strong semantic match");
   });
 
-  it("scores below the possible threshold as a full miss", () => {
+  it("scores below the weak threshold as a full miss", () => {
     const config = makeScoringConfig();
     const retrieval = makeRetrievalMap([
       ["SKILL", "aws", { text: "irrelevant", score: 0.5, featureType: "PROJECT", secondBestScore: 0.2 }],
@@ -45,6 +45,26 @@ describe("matchSkills", () => {
       config,
     );
     expect(result.evidence[0].score).toBe(0);
+    expect(result.missingRequirements).toContain("AWS");
+  });
+
+  // Regression for the "candidate has real but partial evidence" bug: a
+  // score that clears the weak floor (0.55) but not the possible threshold
+  // (0.75) used to be treated identically to zero evidence at all. It should
+  // now earn graduated partial credit instead of being wiped out.
+  it("gives partial credit for a weak (below-possible, above-floor) semantic match", () => {
+    const config = makeScoringConfig();
+    const retrieval = makeRetrievalMap([
+      ["SKILL", "aws", { text: "mentioned AWS in passing", score: 0.6, featureType: "PROJECT", secondBestScore: 0.2 }],
+    ]);
+    const result = matchSkills(
+      [makeRequirement({ name: "AWS", canonicalName: "aws" })],
+      [],
+      retrieval,
+      config,
+    );
+    expect(result.evidence[0].score).toBeCloseTo(0.3);
+    expect(result.evidence[0].reason).toBe("Weak semantic match");
     expect(result.missingRequirements).toContain("AWS");
   });
 
@@ -65,7 +85,8 @@ describe("matchSkills", () => {
       new Map(),
       makeScoringConfig(),
     );
-    expect(result.mandatoryMissed).toBe(true);
+    expect(result.mandatoryMissedCount).toBe(1);
+    expect(result.mandatoryTotal).toBe(1);
   });
 
   it("does not flag a MANDATORY requirement as missed when it has a non-zero semantic score", () => {
@@ -78,7 +99,8 @@ describe("matchSkills", () => {
       retrieval,
       makeScoringConfig(),
     );
-    expect(result.mandatoryMissed).toBe(false);
+    expect(result.mandatoryMissedCount).toBe(0);
+    expect(result.mandatoryTotal).toBe(1);
   });
 
   it("weights requirements by importance in the category score", () => {

@@ -13,7 +13,7 @@ describe("matchProjects", () => {
     ]);
     const result = matchProjects(job, retrieval, makeScoringConfig());
     expect(result.evidence[0].score).toBe(0.9);
-    expect(result.evidence[0].reason).toBe("Strong project match");
+    expect(result.evidence[0].reason).toBe("Strong semantic match");
   });
 
   it("scores 0 when there is no retrieved evidence for a responsibility", () => {

@@ -24,6 +24,7 @@ export const SCORING_V1_DEFAULTS: Omit<ScoringConfig, "_id" | "isActive" | "crea
   semanticThresholds: {
     strong: 0.85,
     possible: 0.75,
+    weak: 0.55,
   },
   mandatoryPenalty: 0.75,
 };
