@@ -4662,3 +4662,139 @@ screen-by-screen detail for every item below lives in `docs/screens.md`
 | 27m. Student resumes/applications/profile visual pass | **Shipped** — Toggle for publish, humanized failure copy, color-as-data role badges, useStagger |
 | 27n. Admin dashboard (new) | **Shipped** — lib/services/adminDashboardService.ts, unit tested, verified end-to-end live; Jobs list moved to /admin/jobs |
 | 27o. Admin jobs/job roles/skill taxonomy/scoring config visual pass | **Shipped** — all admin pages migrated off Grauity; @newtonschool/grauity and styled-components fully removed from the codebase |
+
+---
+
+# 121. Matching Engine Optimization Plan (2026-09-13)
+
+A live UI-driven test against seeded data (backend-first, per this doc's own
+testing philosophy) surfaced a real matching-engine bug: a candidate with
+almost every required skill, real relevant projects, and only a genuine
+experience shortfall was scored 47.7 (Low Fit) because two design flaws —
+a hard 0/1 cliff on semantic matches below the "possible" threshold (§25),
+and a flat mandatory-skill penalty applied the same whether 1 or 5
+mandatory requirements were missed (§32) — combined to bury him. That bug
+is fixed (commit `c8e0628`: graduated semantic credit below a new "weak"
+threshold, penalty scaled by the fraction of mandatory requirements
+actually missed; same candidate now scores 71.9/Moderate Fit). But fixing
+it by hand-reasoning through one example is exactly the anti-pattern §66
+already warned about — "95-100% accuracy" (or any calibration) is not
+meaningful without the real evaluation dataset §67 called for, which was
+never actually built (`tests/evaluation/` holds only synthetic,
+hand-authored fixtures — see its own README — not the real "100
+students / 20 JDs, staff-labeled" dataset §67 describes).
+
+This section sharpens §66-§74's existing accuracy-improvement loop with an
+explicit, user-set risk framing that must govern every future calibration
+decision: **a false negative (a genuinely good candidate scored/bucketed
+below Moderate Fit) is unacceptable; a false positive (a mediocre candidate
+scored into Moderate Fit) is an acceptable cost.** §66's "Bucket accuracy"
+metric and §74's "Error Analysis" step are to be read with this asymmetry
+from now on — optimizing plain accuracy/symmetric error is the wrong
+objective for this product.
+
+## 121.1 Four hypothesized root causes of mis-scoring
+
+Diagnosed this session from one real case — to be confirmed and weighted
+by real proportions once real data exists (121.2), not assumed. These
+refine §74's generic "was X wrong?" checklist into causes specific to what
+was actually observed:
+
+1. **Lexical/synonym mismatch** — semantic retrieval score is a fuzzy proxy
+   for "means the same skill" ("distributed systems" vs "system design" vs
+   "scalable backend systems"); the threshold separating match/no-match is
+   exactly what §25 already flagged as "a starting point only... must be
+   calibrated using evaluation data."
+2. **Unstated-but-demonstrated skill** — a resume shows real evidence of a
+   capability (e.g., a self-built chat app implies system-design ability)
+   without ever using the JD's exact phrase. No amount of retrieval-score
+   threshold tuning fixes this — the evidence text to retrieve may simply
+   not exist. Likely needs an extraction-side fix (an explicit
+   "infer implied skills from project/experience descriptions" pass), not
+   a matching-engine change.
+3. **Requirement rigidity mismatch** — JD-stated numeric/mandatory
+   constraints (e.g., "24 months experience") are enforced as uniform hard
+   eligibility gates (§24, §32) regardless of how flexible a real recruiter
+   would actually be when everything else about the candidate is strong.
+   This is a scoring-*policy* question, not a bug — needs explicit
+   user sign-off before changing, same as the field-of-study strictness
+   question already flagged earlier and left untouched.
+4. **Aggregation washout** — the weighted-mean aggregation (§31) lets one
+   category's strength get diluted by five others; a candidate excellent
+   on 5/6 categories and weak on 1 can't stand out from one mediocre
+   everywhere. A symmetric mean cannot express "one sufficiently strong
+   signal should be enough to rescue this candidate" — the asymmetric risk
+   framing above requires an asymmetric combination rule, not just
+   different weights on the same mean.
+
+## 121.2 Ground truth: use real historical outcomes, not just staff labeling
+
+§67/§68 called for placement staff to manually label student-JD pairs from
+scratch. This adds a stronger, cheaper source where it can be obtained:
+real historical JDs, the real resumes that actually applied to each, and
+which of those candidates were actually interviewed/shortlisted. This is
+real recruiter judgment rather than synthetic labeling, and it directly
+answers "which of the four 121.1 causes is actually driving errors, and in
+what proportion" instead of extrapolating from one anecdote. Manual staff
+labeling (§68) remains the fallback wherever historical outcome data isn't
+available.
+
+Requirements for this dataset to be usable:
+
+- Each JD needs its **full historical applicant pool**, not just the
+  shortlist — both classes (interviewed and not-interviewed) are needed to
+  measure recall *and* precision, not just "did we rank the winners high."
+- Treat "was interviewed" as strong signal, not infallible ground truth —
+  recruiters have their own blind spots and constraints (didn't read every
+  resume, picked on an unrelated factor). Spot-check a sample of
+  "not-interviewed" cases before trusting them as true negatives.
+- This method has a ceiling: it judges ranking quality only within the
+  applicant pool that existed, never against a hypothetically stronger
+  candidate who never applied.
+
+## 121.3 Plan of action (sequenced, extends §73's existing loop)
+
+1. **Source real data** (blocking — user is sourcing this from the
+   placement cell) — real JDs, their real applicant resumes, and real
+   interview/shortlist outcomes per candidate.
+2. **Build the real evaluation dataset** (§67, finally instantiated) as
+   `(JD, resume, wasInterviewed)` tuples, replacing/supplementing the
+   synthetic fixtures in `tests/evaluation/`.
+3. **Run the existing engine against it** and produce the §74
+   error-analysis breakdown per mismatch, scored against the asymmetric
+   loss defined above (weight false negatives on truly-good candidates far
+   higher than false positives on mediocre ones), not plain accuracy.
+4. **Categorize every mismatch into one of the four §121.1 causes** (or a
+   fifth not yet hypothesized) — this produces the actual proportions,
+   replacing the guessed ones above.
+5. **Only then decide the fix, per cause**:
+   - Lexical mismatch → threshold/weight calibration (§73), same engine.
+   - Unstated-but-demonstrated skill → extraction-side fix (implied-skill
+     inference), likely not a matching-engine change at all.
+   - Requirement rigidity → a scoring-policy decision, needs explicit user
+     sign-off (see 121.1.3).
+   - Aggregation washout → candidate mechanism: a **rescue/floor rule** —
+     if any one independent signal (e.g., a holistic whole-resume-vs-JD
+     similarity score, computed separately from the structured pipeline)
+     is strong, it raises the bucket floor rather than being diluted into
+     the weighted mean. This is the concrete shape a "second engine"
+     should take if one gets built at all — see decision #34.
+6. **Any new engine/signal is judged against the same evaluation dataset
+   and the same asymmetric loss**, never added on aesthetic grounds ("more
+   sophisticated feels safer"). This is CLAUDE.md's AI-engineering
+   principle — "no AI system is production-ready without measurement" —
+   applied literally here.
+
+## 121.4 Decision
+
+| # | Question | Decision | Reason |
+|---|---|---|---|
+| 34 | Should a second full matching engine be built now (e.g., whole-document cosine similarity, blended with the current engine)? | **Not yet.** Diagnose first via the real evaluation dataset (121.2-121.3); if a second signal is justified, it should be a narrow **rescue/floor** rule layered on the existing deterministic engine, not a symmetric weighted-average ensemble | A symmetric blend can still dilute a genuinely strong candidate's signal — exactly the failure mode being fixed. It also loses the per-requirement explainability that is this product's stated positioning (`app/LandingContent.tsx`: "Deterministic scoring, not a single cosine similarity") and matters more, not less, for a system whose output shapes real opportunities. Building a second engine before knowing which of the four §121.1 causes actually dominates would repeat the exact mistake being corrected — optimizing blind |
+
+## 121.5 Status
+
+**Blocked on data sourcing** (user is sourcing real JD/resume/outcome data
+from the placement cell). No architecture changes beyond the recalibration
+already shipped (`c8e0628`) should be made until the real evaluation
+dataset exists and steps 3-4 of §121.3 have actually run — this section
+records the plan, not yet-completed work.
